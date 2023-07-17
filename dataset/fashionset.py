@@ -279,13 +279,13 @@ class FashionDataset(Dataset):
 
         df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
 
-        df_check = self.posi_df == 0
-        df_nega[df_check] = 0
+        df_check = self.posi_df == -1
+        df_nega[df_check] = -1
 
         for i, row in df_nega.iterrows():
             while (self.posi_df.loc[i] == df_nega.loc[i]).all():
                 df_nega.loc[i] = list(np.random.choice(self.item_list[i], 1) for i in range(len(self.item_list)))
-                df_nega.loc[i, self.posi_df.loc[i] == 0] = 0
+                df_nega.loc[i, self.posi_df.loc[i] == -1] = -1
         return df_nega
 
     def make_nega(self, ratio=1):
