@@ -209,7 +209,8 @@ class FashionDataset(Dataset):
         self.df_drop = self.df.reset_index(drop=True).drop("compatible", axis=1)
 
         # Create item_list and remove -1 value
-        self.item_list = [list(set(self.df_drop.iloc[:, i])) for i in range(len(self.df_drop.columns))]
+        self.item_list = [list(set(self.df_drop.iloc[:, i])) \
+                          for i in range(len(self.df_drop.columns))]
         for idx, item in enumerate(self.item_list):
             try:
                 self.item_list[idx].remove(-1)
