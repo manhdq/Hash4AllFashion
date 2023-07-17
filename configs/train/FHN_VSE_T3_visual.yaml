@@ -1,7 +1,7 @@
 data_param:
   batch_size: 1 # batch size
-  data_root: /home/ubuntu/Documents/working/Hangers.AI/data/polyvore_Hash4AllFashion # data root
-  image_root: /home/ubuntu/Documents/working/Hangers.AI/data/polyvore_Hash4AllFashion # image root
+  data_root: /data # data root
+  image_root: /data # image root
   data_set: disjoint # data set
   nega_mode: ShuffleOnline # negative outfits strategy
   num_workers: 2 # number of workers

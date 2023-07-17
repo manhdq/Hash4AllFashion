@@ -135,7 +135,6 @@ class FashionExtractionDataset(Dataset):
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
         self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in zip(self.cate_idxs, range(len(self.cate_idxs)))}
         self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
-        
         self.df = self.get_new_data_with_new_cate_selection(self.df, cate_selection)
 
         self.df = self.df.drop("compatible", axis=1)
@@ -207,6 +206,9 @@ class FashionDataset(Dataset):
         self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
         
         self.df = self.get_new_data_with_new_cate_selection(self.df, cate_selection)
+        self.df_drop = self.df.reset_index(drop=True).drop("compatible", axis=1)
+        self.item_list = [list(set(self.df_drop.iloc[:, i])) for i in range(len(self.df_drop.columns))]
+
         num_row_after = len(self.df)
         pairwise_count_after_list = self.get_pair_list(num_pairwise_list, self.df)
         self.logger.info(f"+ After: Num row: {utils.colour(num_row_after)} - " + \
@@ -251,7 +253,6 @@ class FashionDataset(Dataset):
         """Set negative outfits mode."""
         assert mode in [
             "ShuffleDatabase",
-            "RandomOnline",
             "RandomFix",
             "HardOnline",
             "HardFix",
@@ -270,16 +271,22 @@ class FashionDataset(Dataset):
     def _shuffle_nega(self,):
         return self.nega_df_ori.sample(frac=1).reset_index(drop=True)
     
-    def _shuffle_online(self,):        
-        new_df = pd.DataFrame(columns=self.posi_df_ori.columns)
-        for i, row in self.posi_df.iterrows():
-            check = [col for col in self.posi_df.columns if row[col] != -1]
-            while True:
-                res = [self.df.loc[self.df[col] != -1, col].sample().values[0] \
-                       if col in check else -1 for col in self.df.columns[:-1]]
-                if len(row.compare(pd.Series(res, index=self.posi_df.columns), align_axis=0)) == 0:
-                    new_df.loc[i] = res
-        return new_df
+    def _shuffle_online(self,):
+        row, col = self.posi_df.shape
+        df_nega = np.empty((row, col), dtype=np.int64)
+        for i in range(col):
+            df_nega[:, i] = np.random.choice(self.item_list[i], row)
+
+        df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
+
+        df_check = self.posi_df == 0
+        df_nega[df_check] = 0
+
+        for i, row in df_nega.iterrows():
+            while (self.posi_df.loc[i] == df_nega.loc[i]).all():
+                df_nega.loc[i] = list(np.random.choice(self.item_list[i], 1) for i in range(len(self.item_list)))
+                df_nega.loc[i, self.posi_df.loc[i] == 0] = 0
+        return df_nega
 
     def make_nega(self, ratio=1):
         """Make negative outfits according to its mode and ratio."""
@@ -287,7 +294,7 @@ class FashionDataset(Dataset):
         if self.param.nega_mode == "ShuffleDatabase":
             self.nega_df = self._shuffle_nega()
             self.logger.info("Shuffle negative database")
-        elif self.param.nega_mode == "RandomOnline":
+        elif self.param.nega_mode == "ShuffleOnline":
             ##TODO: Random the negative dataframe from positive one
             self.nega_df = self._shuffle_online()
             self.logger.info("Shuffle online negative database")
