@@ -274,13 +274,12 @@ class FashionDataset(Dataset):
     def _shuffle_online(self,):
         row, col = self.posi_df.shape
         df_nega = np.empty((row, col), dtype=np.int64)
+        
         for i in range(col):
             df_nega[:, i] = np.random.choice(self.item_list[i], row)
 
         df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
-
-        df_check = self.posi_df == -1
-        df_nega[df_check] = -1
+        df_nega[self.posi_df == -1] = -1
 
         for i, row in df_nega.iterrows():
             while (self.posi_df.loc[i] == df_nega.loc[i]).all():
