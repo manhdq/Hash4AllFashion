@@ -207,7 +207,14 @@ class FashionDataset(Dataset):
         
         self.df = self.get_new_data_with_new_cate_selection(self.df, cate_selection)
         self.df_drop = self.df.reset_index(drop=True).drop("compatible", axis=1)
+
+        # Create item_list and remove -1 value
         self.item_list = [list(set(self.df_drop.iloc[:, i])) for i in range(len(self.df_drop.columns))]
+        for idx, item in enumerate(self.item_list):
+            try:
+                self.item_list[idx].remove(-1)
+            except:
+                continue
 
         num_row_after = len(self.df)
         pairwise_count_after_list = self.get_pair_list(num_pairwise_list, self.df)
@@ -283,7 +290,8 @@ class FashionDataset(Dataset):
 
         for i, row in df_nega.iterrows():
             while (self.posi_df.loc[i] == df_nega.loc[i]).all():
-                df_nega.loc[i] = list(np.random.choice(self.item_list[i], 1) for i in range(len(self.item_list)))
+                df_nega.loc[i] = list(np.random.choice(self.item_list[i], 1) \
+                                      for i in range(len(self.item_list)))
                 df_nega.loc[i, self.posi_df.loc[i] == -1] = -1
         return df_nega
 
@@ -296,9 +304,10 @@ class FashionDataset(Dataset):
         elif self.param.nega_mode == "ShuffleOnline":
             ##TODO: Random the negative dataframe from positive one
             self.nega_df = self._shuffle_online()
-            self.logger.info("Shuffle online negative database")
+            self.logger.info("Shuffle online database")
         else:
             ##TODO: do something
+            self.logger.info("Upcoming!")
             return
         self.logger.info("Done making negative outfits!")
 
