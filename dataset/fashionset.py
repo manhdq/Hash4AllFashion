@@ -5,7 +5,7 @@ import lmdb
 import numpy as np
 import pandas as pd
 import six
-import tqdm
+from tqdm import tqdm
 from scipy.special import factorial
 from PIL import Image
 
