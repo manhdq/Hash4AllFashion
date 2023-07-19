@@ -172,7 +172,7 @@ class BasicSolver(object):
         ##TODO: Replace this with wandb, comet or tensorBoard
         tracer = utils.tracer.Tracer(win_size=0, logger=self.logger)
         self.net.rank_metric.reset()
-        for idx, inputs in tqdm(enumerate(loader), desc="Loading"):
+        for idx, inputs in enumerate(loader):
             inputv = utils.to_device(inputs, self.device)
             batch_size = len(torch.unique(inputv[0]))
             data_time = time() - lastest_time
