@@ -283,7 +283,7 @@ class FashionDataset(Dataset):
         row, col = self.posi_df.shape
         df_nega = np.empty((row, col), dtype=np.int64)
 
-        for i in tqdm(range(col), desc="Generating negative dataframe"):
+        for i in range(col):
             df_nega[:, i] = np.random.choice(self.item_list[i], row)
 
         df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
