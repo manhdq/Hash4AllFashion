@@ -38,4 +38,4 @@ gpus: [0]
 feature_folder: features
 log_file: logs/train/fashion_hash_net_t3_allFashion_noSemantic.log
 log_level: DEBUG
-load_trained: /home/ubuntu/Documents/working/Hangers.AI/Hash4AllFashion/checkpoints/fashion_hash_net_t3_allFashion_noSemantic_best.net
+load_trained: checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net

@@ -304,6 +304,8 @@ class FashionNet(nn.Module):
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):
         feats = self.features(inputs)
+        visual_fc = self.classifier_v(feats)
+
         lcis_v = self.encoder_v(feats)
         ##TODO: Extract semantic if enable
         lcis_s = None
@@ -311,7 +313,7 @@ class FashionNet(nn.Module):
         bcis_v = self.sign(lcis_v)
         bcis_s = None
 
-        return lcis_v, lcis_s, bcis_v, bcis_s
+        return lcis_v, lcis_s, bcis_v, bcis_s, visual_fc
 
     def num_groups(self):
         """Size of sub-modules."""

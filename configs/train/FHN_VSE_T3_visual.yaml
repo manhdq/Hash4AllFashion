@@ -57,7 +57,9 @@ solver_param:
     lr:
       features: 0.01
       encoder_v: 0.001
+      encoder_t: 0.001
       classifier_v: 0.001
+      classifier_t: 0.001
       core: 0.01
     weight_decay:
       features: 1.0e-05
