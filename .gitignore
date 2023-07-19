@@ -1,0 +1,8 @@
+logs
+features
+TODO.txt
+*.jpg
+*.png
+*.net
+*.pyc
+__pycache__
