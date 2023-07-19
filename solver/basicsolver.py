@@ -9,6 +9,8 @@ from tensorboardX import SummaryWriter
 
 import utils
 
+from tqdm import tqdm
+
 
 ##TODO: Modify this
 class BasicSolver(object):
@@ -170,7 +172,7 @@ class BasicSolver(object):
         ##TODO: Replace this with wandb, comet or tensorBoard
         tracer = utils.tracer.Tracer(win_size=0, logger=self.logger)
         self.net.rank_metric.reset()
-        for idx, inputs in enumerate(loader):
+        for idx, inputs in tqdm(enumerate(loader), desc="Loading"):
             inputv = utils.to_device(inputs, self.device)
             batch_size = len(torch.unique(inputv[0]))
             data_time = time() - lastest_time
@@ -217,7 +219,7 @@ class BasicSolver(object):
         msg = "Epoch[{}]:Test [%d]/[{}]".format(epoch, num_batch)
         self.net.rank_metric.reset()
         test_iter = 0
-        for idx, inputs in enumerate(loader):
+        for idx, inputs in tqdm(enumerate(loader), desc="Loading"):
             # Compute output and loss
             inputv = utils.to_device(inputs, self.device)
             batch_size = len(torch.unique(inputv[0]))

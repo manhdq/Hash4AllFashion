@@ -282,14 +282,14 @@ class FashionDataset(Dataset):
     def _shuffle_online(self,):
         row, col = self.posi_df.shape
         df_nega = np.empty((row, col), dtype=np.int64)
-        
-        for i in range(col):
+
+        for i in tqdm(range(col), desc="Generating negative dataframe"):
             df_nega[:, i] = np.random.choice(self.item_list[i], row)
 
         df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
         df_nega[self.posi_df == -1] = -1
 
-        for i, row in df_nega.iterrows():
+        for i, row in tqdm(df_nega.iterrows(), desc="Checking negative dataframe"):
             while (self.posi_df.loc[i] == df_nega.loc[i]).all():
                 df_nega.loc[i] = list(np.random.choice(self.item_list[i], 1) \
                                       for i in range(len(self.item_list)))
