@@ -291,11 +291,12 @@ class FashionNet(nn.Module):
     def extract_features(self, inputs):
         feats = self.features(inputs)
         lcis_v = self.encoder_v(feats)
+
         ##TODO: Extract semantic if enable
-        lcis_s = None
+        lcis_s = self.encoder_t(feats)
 
         bcis_v = self.sign(lcis_v)
-        bcis_s = None
+        bcis_s = self.sign(lcis_s)
 
         return lcis_v, lcis_s, bcis_v, bcis_s
 
