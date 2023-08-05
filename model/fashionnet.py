@@ -249,6 +249,15 @@ class FashionNet(nn.Module):
             posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, self.encoder_v
         )
         return scores, latents
+    
+    #TODO: modify this
+    def semantic_output(self, *inputs):
+        lcus, pos_feat, neg_feat = inputs
+
+        scores, latents = self._pairwise_output(
+            lcus, pos_feat, neg_feat, self.encoder_t
+        )
+        return scores, latents
 
     def forward(self, *inputs):
         """Forward according to setting."""
@@ -262,7 +271,7 @@ class FashionNet(nn.Module):
         elif self.param.use_visual:
             scores, _ = self.visual_output(*inputs)
         elif self.param.use_semantic:
-            raise "Not implemented yet"
+            scores, _ = self.semantic_output(*inputs)
         else:
             raise ValueError
         # print(scores) ##TODO:
