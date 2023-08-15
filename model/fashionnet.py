@@ -244,7 +244,7 @@ class FashionNet(nn.Module):
         return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
 
     def visual_output(self, *inputs):
-        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        posi_mask, _, posi_idxs, posi_imgs, nega_mask, _, nega_idxs, nega_imgs = inputs
         
         # Extract visual features
         pos_feat = self.features(posi_imgs)
@@ -261,8 +261,9 @@ class FashionNet(nn.Module):
         """Forward according to setting."""
         # Pair-wise output
         ##TODO: Continue with this func code
-        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        posi_mask, posi_is_item, posi_idxs, posi_imgs, nega_mask, nega_is_item, nega_idxs, nega_imgs = inputs
         idxs = torch.cat([posi_idxs, nega_idxs])
+        is_items = torch.cat([posi_is_item, nega_is_item])
 
         loss = dict()
         accuracy = dict()
@@ -271,6 +272,11 @@ class FashionNet(nn.Module):
         elif self.param.use_visual:
             scores, _, visual_feats = self.visual_output(*inputs)
             ##TODO: priority. Make this using classifier dynamic option
+            # print(visual_feats.shape)
+            # print(idxs)
+            # print(is_items)
+            # print(visual_feats[is_items==1].shape)
+            # exit()
             visual_fc = self.classifier_v(visual_feats)
         elif self.param.use_semantic:
             raise "Not implemented yet"
@@ -287,19 +293,20 @@ class FashionNet(nn.Module):
         rank_loss = soft_margin_loss(diff)
         binary_loss = soft_margin_loss(binary_diff)
         cls_loss = F.cross_entropy(visual_fc, idxs, reduction='none')
+        cls_loss = cls_loss * is_items  # Only get items loss, not null item
 
         ##### Calculate accuracy #####
         acc = torch.gt(diff.data, 0)
         binary_acc = torch.gt(binary_diff, 0)
-        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs)
+        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs, is_items)
 
         loss.update(rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss)
         accuracy.update(accuracy=acc, binary_accuracy=binary_acc, cate_acc=cate_acc)
         return loss, accuracy
 
-    def calc_cate_acc(self, visual_fc, idxs):
+    def calc_cate_acc(self, visual_fc, idxs, is_items):
         pred_idxs = torch.argmax(visual_fc, dim=1)
-        return torch.eq(pred_idxs, idxs)
+        return torch.eq(pred_idxs[is_items==1], idxs[is_items==1])
 
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):

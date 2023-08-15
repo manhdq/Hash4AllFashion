@@ -14,12 +14,12 @@ data_param:
 
 train_data_param:
   shuffle: true # do shuffle
-  data_mode: PairWise # output data format
+  data_mode: PairWiseIncludeNull # output data format
   phase: train # split
 
 test_data_param:
   shuffle: false # do not shuffle
-  data_mode: PairWise # output data format
+  data_mode: PairWiseIncludeNull # output data format
   phase: val # split
 
 net_param:

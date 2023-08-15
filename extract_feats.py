@@ -115,6 +115,7 @@ def main(config, logger):
             lcis_s = [None for _ in range(len(lcis_v))]  ##TODO: Modify for semantic later
             bcis_v = [bci_v.cpu().detach().numpy() for bci_v in bcis_v]
             bcis_s = [None for _ in range(len(bcis_v))]
+            visual_logits = [visual_logit.cpu().detach().numpy() for visual_logit in visual_logits]
 
             model_run_time = time() - lastest_time
             
@@ -145,8 +146,8 @@ def main(config, logger):
 
     print(f"--Total data time: {np.sum(data_times):.3f}s")
     print(f"--Average data time: {np.mean(data_times):.3f}s")
-    print(f"--Total model run time: {np.sum(model_run_times), :.3f}s")
-    print(f"--Average model run time: {np.mean(model_run_times), :.3f}s")
+    print(f"--Total model run time: {np.sum(model_run_times):.3f}s")
+    print(f"--Average model run time: {np.mean(model_run_times):.3f}s")
 
 
 if __name__ == "__main__":
