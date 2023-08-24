@@ -58,7 +58,9 @@ class Datum(object):
                 transforms=None,):
         self.cate_dict = cfg.CateIdx
         self.cate_name = cfg.CateName
+        self.cate_map = list(cfg.CateIdx.values())
         
+        # Hard fix
         self.use_semantic = use_semantic
         self.semantic = semantic
         self.use_visual = use_visual
