@@ -92,7 +92,7 @@ class Datum(object):
                 img = Image.open(f).convert("RGB")
         return img
     
-    def load_semantics(self, c, n):
+    def load_semantics(self, id_name):
         """Load semantic embedding.
 
         Return
@@ -100,18 +100,15 @@ class Datum(object):
         vec: the semantic vector of n-th item in c-the category,
             type of torch.FloatTensor.
         """
-        img_name = self.image_list[c][n]
+        img_name = f"{id_name}.jpg"
         vec = self.semantic[img_name]
         return torch.from_numpy(vec.astype(np.float32))
     
     def semantic_data(self, indices):
         """Load semantic data of one outfit."""
         vecs = []
-        # for simplicity, fill up top item for variable-length outfit
-        if indices[1] == -1:
-            indices[1] = indices[0]
-        for idx, cate in zip(indices, self.cate_map):
-            v = self.load_semantics(cate, idx)
+        for id_name in indices:
+            v = self.load_semantics(id_name)
             vecs.append(v)
         return vecs
 
