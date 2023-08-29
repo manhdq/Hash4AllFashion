@@ -278,14 +278,14 @@ class FashionNet(nn.Module):
         """Forward according to setting."""
         # Pair-wise output
         ##TODO: Continue with this func code
-        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        # posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
 
         loss = dict()
         accuracy = dict()
 
         if self.param.use_semantic and self.param.use_visual:
-            score_v, latent_v = self.visual_output(posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs)
-            score_s, latent_s = self.semantic_output(posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs)
+            score_v, latent_v = self.visual_output(*inputs)
+            score_s, latent_s = self.semantic_output(*inputs)
             scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
             # visual-semantic similarity
             vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
