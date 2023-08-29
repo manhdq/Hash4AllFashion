@@ -155,7 +155,8 @@ class FashionExtractionDataset(Dataset):
 
         ##TODO: Simplify this later
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
-        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in zip(self.cate_idxs, range(len(self.cate_idxs)))}
+        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in \
+                                         zip(self.cate_idxs, range(len(self.cate_idxs)))}
         self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
         self.df = self.get_new_data_with_new_cate_selection(self.df, cate_selection)
 
@@ -207,15 +208,13 @@ class FashionDataset(Dataset):
 
         self.df = pd.read_csv(self.param.data_csv)
         num_pairwise_list = param.num_pairwise
-        self.logger.info("Dataframe processing...")
+        self.logger.info("\nDataframe processing...")
         # Before processing
         num_row_before = len(self.df)
         pairwise_count_before_list = self.get_pair_list(num_pairwise_list, self.df)
         self.logger.info(f"+ Before: Num row: {utils.colour(num_row_before)} - " + \
                         " - ".join([f"pairwise {num_pairwise}: {utils.colour(pairwise_count_before)}" for \
                                     num_pairwise, pairwise_count_before in zip(num_pairwise_list, pairwise_count_before_list)]))
-        self.logger.info("")
-
         # After processing
         if cate_selection == "all":
             cate_selection = list(self.df.columns)
@@ -224,7 +223,8 @@ class FashionDataset(Dataset):
 
         ##TODO: Simplify this later
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
-        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in zip(self.cate_idxs, range(len(self.cate_idxs)))}
+        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in \
+                                         zip(self.cate_idxs, range(len(self.cate_idxs)))}
         self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
         
         self.df = self.get_new_data_with_new_cate_selection(self.df, cate_selection)
@@ -320,19 +320,19 @@ class FashionDataset(Dataset):
 
     def make_nega(self, ratio=1):
         """Make negative outfits according to its mode and ratio."""
-        self.logger.info("Make negative outfit for mode %s" % self.param.nega_mode)
+        self.logger.info("Make negative outfit for mode %s" % {utils.colour(self.param.nega_mode)})
         if self.param.nega_mode == "ShuffleDatabase":
             self.nega_df = self._shuffle_nega()
-            self.logger.info("Shuffle negative database")
+            self.logger.info("Shuffling negative database")
         elif self.param.nega_mode == "ShuffleOnline":
             ##TODO: Random the negative dataframe from positive one
             self.nega_df = self._shuffle_online()
-            self.logger.info("Shuffle online database")
+            self.logger.info("Shuffling online database")
         else:
             ##TODO: do something
             self.logger.info("Upcoming!")
             return
-        self.logger.info("Done making negative outfits!")
+        self.logger.info("Done making negative outfits!\n")
 
     ##TODO: Modify this func
     def set_data_mode(self, mode):
@@ -406,7 +406,13 @@ class FashionDataset(Dataset):
         ##TODO: Modify index for tuple selection for posi and nega (maybe shuffle the df each epoch)
         posi_idxs, posi_tpl = self.get_tuple(self.posi_df, int(index // self.ratio))
         nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
-        return ((posi_idxs, self.datum.get(posi_tpl)), (nega_idxs, self.datum.get(nega_tpl)))
+
+        posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))  ## Mapping to tensor idxs for classification training
+        nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
+
+        posi_v, posi_s = self.datum.get(posi_tpl)
+        nega_v, nega_s = self.datum.get(nega_tpl)
+        return ((posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
@@ -451,8 +457,8 @@ class FashionLoader(object):
             f"- Not selected apparel: " + ", ".join([utils.colour(cate, "Red") for cate in self.cate_not_selection])
         )
         self.logger.info(
-            f"- Data loader configuration: batch size ({utils.colour(param.batch_size)})," \
-                " number of workers ({utils.colour(param.num_workers)})"
+            f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), \
+                number of workers ({utils.colour(param.num_workers)})"
         )
         transforms = get_img_trans(param.phase, param.image_size)
         self.dataset = FashionDataset(param, transforms, self.cate_selection.copy(), logger)
@@ -524,22 +530,24 @@ def outfit_fashion_collate(batch):
         ##TODO: Describe later
     --------
     """
-    posi_mask, posi_idxs_out, posi_imgs_out, nega_mask, nega_idxs_out, nega_imgs_out = \
-            [], [], [], [], [], []
+    posi_mask, posi_idxs_out, posi_imgs_out, posi_s_out, nega_mask, nega_idxs_out, nega_imgs_out, nega_s_out = \
+            [], [], [], [], [], [], [], []
     
     for i, sample in enumerate(batch):
-        (posi_idxs, posi_imgs), (nega_idxs, nega_imgs) = sample
+        (posi_idxs, posi_imgs, posi_s), (nega_idxs, nega_imgs, nega_s) = sample
 
         posi_mask.extend([i]*len(posi_idxs))
         posi_idxs_out.extend(posi_idxs)
         posi_imgs_out.extend(posi_imgs)
+        posi_s_out.extend(posi_s)
 
         nega_mask.extend([i]*len(nega_idxs))
         nega_idxs_out.extend(nega_idxs)
         nega_imgs_out.extend(nega_imgs)
+        nega_s_out.extend(nega_s)
     
-    return torch.Tensor(posi_mask).to(torch.long), torch.Tensor(posi_idxs_out).to(torch.long), torch.stack(posi_imgs_out, 0), \
-            torch.Tensor(nega_mask).to(torch.long), torch.Tensor(nega_idxs_out).to(torch.long), torch.stack(nega_imgs_out, 0)
+    return torch.Tensor(posi_mask).to(torch.long), torch.Tensor(posi_idxs_out).to(torch.long), torch.stack(posi_imgs_out, 0), torch.stack(posi_s_out, 0), \
+            torch.Tensor(nega_mask).to(torch.long), torch.Tensor(nega_idxs_out).to(torch.long), torch.stack(nega_imgs_out, 0), torch.stack(nega_s_out, 0)
 
 
 # --------------------------
