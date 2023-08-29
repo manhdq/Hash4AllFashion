@@ -14,7 +14,22 @@ from . import basemodel as M
 
 
 NAMED_MODEL = utils.get_named_function(B)
+LOGGER = logging.getLogger(__name__)
 
+def contrastive_loss(margin, im, s):
+    size, dim = im.shape
+    scores = im.matmul(s.t()) / dim
+    diag = scores.diag()
+    zeros = torch.zeros_like(scores)
+    # shape #item x #item
+    # sum along the row to get the VSE loss from each image
+    cost_im = torch.max(zeros, margin - diag.view(-1, 1) + scores)
+    # sum along the column to get the VSE loss from each sentence
+    cost_s = torch.max(zeros, margin - diag.view(1, -1) + scores)
+    # to fit parallel, only compute the average for each item
+    vse_loss = cost_im.sum(dim=1) + cost_s.sum(dim=0) - 2 * margin
+    # for data parallel, reshape to (size, 1)
+    return vse_loss / (size - 1)
 
 def soft_margin_loss(x):
     target = torch.ones_like(x)
@@ -252,10 +267,10 @@ class FashionNet(nn.Module):
     
     #TODO: modify this
     def semantic_output(self, *inputs):
-        lcus, pos_feat, neg_feat = inputs
+        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
 
         scores, latents = self._pairwise_output(
-            lcus, pos_feat, neg_feat, self.encoder_t
+            posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs, self.encoder_t
         )
         return scores, latents
 
@@ -263,11 +278,18 @@ class FashionNet(nn.Module):
         """Forward according to setting."""
         # Pair-wise output
         ##TODO: Continue with this func code
-        # posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+
         loss = dict()
         accuracy = dict()
+
         if self.param.use_semantic and self.param.use_visual:
-            raise "Not implemented yet"
+            score_v, latent_v = self.visual_output(posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs)
+            score_s, latent_s = self.semantic_output(posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs)
+            scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
+            # visual-semantic similarity
+            vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
+            loss.update(vse_loss=vse_loss)
         elif self.param.use_visual:
             scores, _ = self.visual_output(*inputs)
         elif self.param.use_semantic:
