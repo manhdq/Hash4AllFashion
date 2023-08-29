@@ -320,7 +320,7 @@ class FashionDataset(Dataset):
 
     def make_nega(self, ratio=1):
         """Make negative outfits according to its mode and ratio."""
-        self.logger.info("Make negative outfit for mode %s" % {utils.colour(self.param.nega_mode)})
+        self.logger.info(f"Make negative outfit for mode {utils.colour(self.param.nega_mode)}")
         if self.param.nega_mode == "ShuffleDatabase":
             self.nega_df = self._shuffle_nega()
             self.logger.info("Shuffling negative database")
@@ -457,8 +457,7 @@ class FashionLoader(object):
             f"- Not selected apparel: " + ", ".join([utils.colour(cate, "Red") for cate in self.cate_not_selection])
         )
         self.logger.info(
-            f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), \
-                number of workers ({utils.colour(param.num_workers)})"
+            f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), number of workers ({utils.colour(param.num_workers)})"
         )
         transforms = get_img_trans(param.phase, param.image_size)
         self.dataset = FashionDataset(param, transforms, self.cate_selection.copy(), logger)
