@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 import utils
 import utils.config as cfg
-from .losses import soft_margin_loss
+from .losses import soft_margin_loss, contrastive_loss
 from . import backbones as B
 from . import basemodel as M
 
@@ -105,8 +105,8 @@ class FashionNet(nn.Module):
         ##TODO: Code clssification module for text
         if self.param.use_visual:
             self.classifier_v = M.ImgClassifier(feat_dim, len(self.cate_idxs))
-        if self.param.use_semantic:
-            raise
+        # if self.param.use_semantic:
+        #     raise
 
         # Matching block
         if self.param.hash_types == utils.param.NO_WEIGHTED_HASH:
@@ -244,7 +244,7 @@ class FashionNet(nn.Module):
         return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
 
     def visual_output(self, *inputs):
-        posi_mask, _, posi_idxs, posi_imgs, nega_mask, _, nega_idxs, nega_imgs = inputs
+        posi_mask, posi_idxs, posi_imgs, _, nega_mask, nega_idxs, nega_imgs, _ = inputs
         
         # Extract visual features
         pos_feat = self.features(posi_imgs)
@@ -257,26 +257,34 @@ class FashionNet(nn.Module):
         )
         return scores, latents, feats
 
+    def semantic_output(self, *inputs):
+        posi_mask, posi_idxs, _, posi_s, nega_mask, nega_idxs, _, nega_s = inputs
+
+        scores, latents = self._pairwise_output(
+            posi_mask, posi_idxs, posi_s, nega_mask, nega_idxs, nega_s, self.encoder_t
+        )
+        return scores, latents
+
     def forward(self, *inputs):
         """Forward according to setting."""
         # Pair-wise output
         ##TODO: Continue with this func code
-        posi_mask, posi_is_item, posi_idxs, posi_imgs, nega_mask, nega_is_item, nega_idxs, nega_imgs = inputs
+        posi_mask, posi_idxs, posi_imgs, posi_s, nega_mask, nega_idxs, nega_imgs, nega_s = inputs
         idxs = torch.cat([posi_idxs, nega_idxs])
-        is_items = torch.cat([posi_is_item, nega_is_item])
 
         loss = dict()
         accuracy = dict()
         if self.param.use_semantic and self.param.use_visual:
-            raise "Not implemented yet"
+            score_v, latent_v, visual_feats = self.visual_output(*inputs)
+            exit()
+            score_s, latent_s = self.semantic_output(*inputs)
+            scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
+            # visual-semantic similarity
+            vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
+            loss.update(vse_loss=vse_loss)
+            visual_fc = self.classifier_v(visual_feats)
         elif self.param.use_visual:
             scores, _, visual_feats = self.visual_output(*inputs)
-            ##TODO: priority. Make this using classifier dynamic option
-            # print(visual_feats.shape)
-            # print(idxs)
-            # print(is_items)
-            # print(visual_feats[is_items==1].shape)
-            # exit()
             visual_fc = self.classifier_v(visual_feats)
         elif self.param.use_semantic:
             raise "Not implemented yet"
@@ -293,20 +301,20 @@ class FashionNet(nn.Module):
         rank_loss = soft_margin_loss(diff)
         binary_loss = soft_margin_loss(binary_diff)
         cls_loss = F.cross_entropy(visual_fc, idxs, reduction='none')
-        cls_loss = cls_loss * is_items  # Only get items loss, not null item
+        cls_loss = cls_loss
 
         ##### Calculate accuracy #####
         acc = torch.gt(diff.data, 0)
         binary_acc = torch.gt(binary_diff, 0)
-        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs, is_items)
+        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs)
 
         loss.update(rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss)
         accuracy.update(accuracy=acc, binary_accuracy=binary_acc, cate_acc=cate_acc)
         return loss, accuracy
 
-    def calc_cate_acc(self, visual_fc, idxs, is_items):
+    def calc_cate_acc(self, visual_fc, idxs):
         pred_idxs = torch.argmax(visual_fc, dim=1)
-        return torch.eq(pred_idxs[is_items==1], idxs[is_items==1])
+        return torch.eq(pred_idxs, idxs)
 
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):

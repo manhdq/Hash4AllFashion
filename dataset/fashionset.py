@@ -1,6 +1,6 @@
 import logging
 import os
-import pickle
+import pickle5 as pickle
 import lmdb
 import numpy as np
 import pandas as pd
@@ -89,6 +89,26 @@ class Datum(object):
             with open(path, "rb") as f:
                 img = Image.open(f).convert("RGB")
         return img
+
+    def load_semantics(self, id_name):
+        """Load semantic embedding.
+
+        Return
+        ------
+        vec: the semantic vector of n-th item in c-the category,
+            type of torch.FloatTensor.
+        """
+        img_name = f"{id_name}.jpg"
+        vec = self.semantic[img_name]
+        return torch.from_numpy(vec.astype(np.float32))
+
+    def semantic_data(self, indices):
+        """Load semantic data of one outfit."""
+        vecs = []
+        for id_name in indices:
+            v = self.load_semantics(id_name)
+            vecs.append(v)
+        return vecs
 
     def visual_data(self, indices):
         """Load image data of the outfit."""
@@ -364,30 +384,21 @@ class FashionDataset(Dataset):
         posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))  ## Mapping to tensor idxs for classification training
         nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
         
-        return ((posi_idxs, self.datum.get(posi_tpl)), (nega_idxs, self.datum.get(nega_tpl)))
-
-    def _PairWiseIncludeNull(self, index):
-        """Get a pair of outfits."""
-        posi_idxs, posi_tpl = self.get_tuple(self.posi_df, int(index // self.ratio), include_null=True)
-        nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index, include_null=True)
-
-        posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))  ## Mapping to tensor idxs for classification training
-        nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
-        
-        return ((posi_idxs, posi_tpl, self.datum.get(posi_tpl)), (nega_idxs, nega_tpl, self.datum.get(nega_tpl)))
+        ##TODO: Dynamic options for visual and semantic selections
+        posi_v, posi_s = self.datum.get(posi_tpl)
+        nega_v, nega_s = self.datum.get(nega_tpl)
+        return ((posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
         return dict(
             PairWise=self._PairWise,
-            PairWiseIncludeNull=self._PairWiseIncludeNull,
         )[self.param.data_mode](index)
 
     def __len__(self):
         """Return the size of dataset."""
         return dict(
             PairWise=int(self.ratio * self.num_posi),
-            PairWiseIncludeNull=int(self.ratio * self.num_posi)
         )[self.param.data_mode]
 
     @property
@@ -492,24 +503,24 @@ def outfit_fashion_collate(batch):
         ##TODO: Describe later
     --------
     """
-    posi_mask, posi_is_item, posi_idxs_out, posi_imgs_out, nega_mask, nega_is_item, nega_idxs_out, nega_imgs_out = \
+    posi_mask, posi_idxs_out, posi_imgs_out, posi_s_out, nega_mask, nega_idxs_out, nega_imgs_out, nega_s_out = \
             [], [], [], [], [], [], [], []
     
     for i, sample in enumerate(batch):
-        (posi_idxs, posi_tpl, posi_imgs), (nega_idxs, nega_tpl, nega_imgs) = sample
+        (posi_idxs, posi_imgs, posi_s), (nega_idxs, nega_imgs, nega_s) = sample
 
         posi_mask.extend([i]*len(posi_idxs))
-        posi_is_item.extend([1 if x != -1 else 0 for x in posi_tpl])
         posi_idxs_out.extend(posi_idxs)
         posi_imgs_out.extend(posi_imgs)
+        posi_s_out.extend(posi_s)
 
         nega_mask.extend([i]*len(nega_idxs))
-        nega_is_item.extend([1 if x != -1 else 0 for x in nega_tpl])
         nega_idxs_out.extend(nega_idxs)
         nega_imgs_out.extend(nega_imgs)
+        nega_s_out.extend(nega_s)
     
-    return torch.Tensor(posi_mask).to(torch.long), torch.Tensor(posi_is_item).to(torch.long), torch.Tensor(posi_idxs_out).to(torch.long), torch.stack(posi_imgs_out, 0), \
-            torch.Tensor(nega_mask).to(torch.long), torch.Tensor(nega_is_item).to(torch.long), torch.Tensor(nega_idxs_out).to(torch.long), torch.stack(nega_imgs_out, 0)
+    return torch.Tensor(posi_mask).to(torch.long), torch.Tensor(posi_idxs_out).to(torch.long), torch.stack(posi_imgs_out, 0), torch.stack(posi_s_out, 0), \
+            torch.Tensor(nega_mask).to(torch.long), torch.Tensor(nega_idxs_out).to(torch.long), torch.stack(nega_imgs_out, 0), torch.stack(nega_s_out, 0)
 
 
 # --------------------------

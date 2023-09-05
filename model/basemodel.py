@@ -80,6 +80,26 @@ class ImgEncoder(LatentCode):
         nn.init.normal_(self.encoder[-1].weight.data, std=0.01)
 
 
+class TxtEncoder(LatentCode):
+    def __init__(self, in_feature, param):
+        super().__init__(param)
+        self.encoder = nn.Sequential(
+            nn.Linear(in_feature, 1024),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(1024, param.dim, bias=False),
+        )
+
+    def feat(self, x):
+        return self.encoder(x)
+
+    def init_weights(self):
+        """Initialize weights for encoder with pre-trained model."""
+        nn.init.normal_(self.encoder[0].weight.data, std=0.01)
+        nn.init.constant_(self.encoder[0].bias.data, 0)
+        nn.init.normal_(self.encoder[-1].weight.data, std=0.01)
+
+
 class ImgClassifier(nn.Module):
     """Module for classification for visual features (image)"""
 

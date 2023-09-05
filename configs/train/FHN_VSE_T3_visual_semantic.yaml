@@ -6,7 +6,7 @@ data_param:
   nega_mode: ShuffleDatabase # negative outfits strategy
   num_workers: 2 # number of workers
   use_lmdb: True # use lmbd data
-  use_semantic: false # use sentance data
+  use_semantic: true # use sentance data
   use_visual: true # use visual data
   cate_selection: ["top", "bottom", "bag", "outerwear", "shoe"]
   num_pairwise: [2, 3, 4]
@@ -14,12 +14,12 @@ data_param:
 
 train_data_param:
   shuffle: true # do shuffle
-  data_mode: PairWiseIncludeNull # output data format
+  data_mode: PairWise # output data format
   phase: train # split
 
 test_data_param:
   shuffle: false # do not shuffle
-  data_mode: PairWiseIncludeNull # output data format
+  data_mode: PairWise # output data format
   phase: val # split
 
 net_param:
