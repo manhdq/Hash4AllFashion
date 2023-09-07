@@ -179,7 +179,7 @@ class DataParam(_Param):
 
     @property
     def semantic_fn(self):
-        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")
+        return os.path.join(self.data_root, "sentence_vector/semantic1.pkl")
 
     @property
     def image_list_fn(self):
