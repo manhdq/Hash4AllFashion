@@ -129,13 +129,13 @@ class Datum(object):
     def get(self, tpl):
         """Convert a tuple to torch.FloatTensor"""
         if self.use_semantic and self.use_visual:
-            tpl_s = self.semantic_data(tpl)
             tpl_v = self.visual_data(tpl)
+            tpl_s = self.semantic_data(tpl)
             return tpl_v, tpl_s
         if self.use_visual:
-            return self.visual_data(tpl)
+            return self.visual_data(tpl), []
         if self.use_semantic:
-            return self.semantic_data(tpl)
+            return [], self.semantic_data(tpl)
         return tpl
 
 
