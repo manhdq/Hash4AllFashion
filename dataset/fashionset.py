@@ -208,14 +208,13 @@ class FashionDataset(Dataset):
 
         self.df = pd.read_csv(self.param.data_csv)
         num_pairwise_list = param.num_pairwise
-        self.logger.info("Dataframe processing...")
+        self.logger.info("\nDataframe processing...")
         # Before processing
         num_row_before = len(self.df)
         pairwise_count_before_list = self.get_pair_list(num_pairwise_list, self.df)
         self.logger.info(f"+ Before: Num row: {utils.colour(num_row_before)} - " + \
                         " - ".join([f"pairwise {num_pairwise}: {utils.colour(pairwise_count_before)}" for \
                                     num_pairwise, pairwise_count_before in zip(num_pairwise_list, pairwise_count_before_list)]))
-        self.logger.info("")
 
         # After processing
         if cate_selection == "all":
