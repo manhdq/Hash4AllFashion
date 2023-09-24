@@ -2,14 +2,13 @@ import os
 import numpy as np
 from time import time
 
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.nn.parallel import data_parallel
 from tensorboardX import SummaryWriter
 
 import utils
-
-from tqdm import tqdm
 
 
 ##TODO: Modify this
@@ -41,6 +40,7 @@ class BasicSolver(object):
         optimizer = utils.get_named_class(torch.optim)[optim_param.name]
         groups = optim_param.groups
         num_child = self.net.num_groups()
+
         if len(groups) == 1:
             groups = groups * num_child
         else:
@@ -52,10 +52,15 @@ class BasicSolver(object):
                 len(groups), num_child
             )
         param_groups = []
-        for child, param in zip(self.net.children(), groups):
+
+        ##TODO: priority. Set lr param according to child name
+        for name, child in self.net.named_children():
+            assert name in groups, "param name should be in " + str(list(groups.keys()))
+            param = groups[name]
             param_group = {"params": child.parameters()}
             param_group.update(param)
             param_groups.append(param_group)
+        
         self.optimizer = optimizer(param_groups, **optim_param.grad_param)
         # Set learning rate policy
         enum_lr_policy = utils.get_named_class(torch.optim.lr_scheduler)
@@ -166,7 +171,7 @@ class BasicSolver(object):
         phase = "train"
         # Generate negative outfit before each epoch
         loader = self.loader[phase].make_nega()
-        self.logger.info("\n".join(["\n", "="*10, "TRAINING", "="*10]))
+        self.logger.info("\n".join(["\n", "="*10, " TRAINING", "="*10]))
         msg = "Train - Epoch[{}](%d): [%d]/[{}]:".format(epoch, loader.num_batch)
         lastest_time = time()
         ##TODO: Replace this with wandb, comet or tensorBoard
@@ -219,7 +224,7 @@ class BasicSolver(object):
         msg = "Epoch[{}]:Test [%d]/[{}]".format(epoch, num_batch)
         self.net.rank_metric.reset()
         test_iter = 0
-        for idx, inputs in tqdm(enumerate(loader), desc="Loading"):
+        for idx, inputs in enumerate(loader):
             # Compute output and loss
             inputv = utils.to_device(inputs, self.device)
             batch_size = len(torch.unique(inputv[0]))

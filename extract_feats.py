@@ -88,10 +88,12 @@ def main(config, logger):
     feats_latent_visual_dict = {}
     # feats_latent_semantic_dict = {}  ##TODO: Later
     feats_binary_visual_dict = {}
+    logits_visual_dict = {}
     # feats_binary_semantic_dict = {}
     for phase in phases:
         feats_latent_visual_dict[phase] = {cate: {} for cate in train_param.cate_selection}
         feats_binary_visual_dict[phase] = {cate: {} for cate in train_param.cate_selection}
+        logits_visual_dict[phase] = {}
 
     # Get net
     net = get_net(config, logger)
@@ -100,43 +102,52 @@ def main(config, logger):
     model_run_times = []
 
     # Get features embedding
-    lastest_time = time()
     for phase, dataset in zip(phases, datasets):
+        lastest_time = time()
         for data_input in tqdm(dataset, desc="Trainset extraction:", total=len(dataset)):
             outfit_idxs, tpl_names, inputs = data_input
             inputs = torch.stack(inputs, 0)
             inputs = utils.to_device(inputs, device)
             data_time = time() - lastest_time
-            lcis_v, lcis_s, bcis_v, bcis_s = net.extract_features(inputs)
+            lcis_v, lcis_s, bcis_v, bcis_s, visual_logits = net.extract_features(inputs)
 
-            lcis_v = [lci_v for lci_v in lcis_v]
+            lcis_v = [lci_v.cpu().detach().numpy() for lci_v in lcis_v]
             lcis_s = [None for _ in range(len(lcis_v))]  ##TODO: Modify for semantic later
-            bcis_v = [bci_v for bci_v in bcis_v]
+            bcis_v = [bci_v.cpu().detach().numpy() for bci_v in bcis_v]
             bcis_s = [None for _ in range(len(bcis_v))]
+            visual_logits = [visual_logit.cpu().detach().numpy() for visual_logit in visual_logits]
 
             model_run_time = time() - lastest_time
             
-            for outfit_idx, sample_name, lci_v, lci_s, bci_v, bci_s in \
-                    zip(outfit_idxs, tpl_names, lcis_v, lcis_s, bcis_v, bcis_s):
+            for outfit_idx, sample_name, lci_v, lci_s, bci_v, bci_s, visual_logit in \
+                    zip(outfit_idxs, tpl_names, lcis_v, lcis_s, bcis_v, bcis_s, visual_logits):
                 cate_name = idx2cat[outfit_idx]
                 feats_latent_visual_dict[phase][cate_name][str(sample_name)] = lci_v
                 feats_binary_visual_dict[phase][cate_name][str(sample_name)] = bci_v
+                logits_visual_dict[phase][str(sample_name)] = visual_logit
 
             data_times.append(data_time)
             model_run_times.append(model_run_time)
+            lastest_time = time()
+
+            # Save memory
+            del lcis_v, lcis_s, bcis_v, bcis_s
         
         feats_latent_visual_file = os.path.join(config.feature_folder, f"{phase}_latent_visual.pkl")
         feats_binary_visual_file = os.path.join(config.feature_folder, f"{phase}_binary_visual.pkl")
+        logits_visual_file = os.path.join(config.feature_folder, f"{phase}_visual_logits.pkl")
 
         with open(feats_latent_visual_file, "wb") as handle:
             pickle.dump(feats_latent_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
         with open(feats_binary_visual_file, "wb") as handle:
             pickle.dump(feats_binary_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
+        with open(logits_visual_file, "wb") as handle:
+            pickle.dump(logits_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    print(f"--Total data time: {np.sum(data_times), :.3f}s")
-    print(f"--Average data time: {np.mean(data_times), :.3f}s")
-    print(f"--Total model run time: {np.sum(data_times), :.3f}s")
-    print(f"--Average model run time: {np.sum(data_times), :.3f}s")
+    print(f"--Total data time: {np.sum(data_times):.3f}s")
+    print(f"--Average data time: {np.mean(data_times):.3f}s")
+    print(f"--Total model run time: {np.sum(model_run_times):.3f}s")
+    print(f"--Average model run time: {np.mean(model_run_times):.3f}s")
 
 
 if __name__ == "__main__":

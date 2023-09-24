@@ -79,6 +79,7 @@ class ImgEncoder(LatentCode):
         nn.init.constant_(self.encoder[1].bias.data, 0)
         nn.init.normal_(self.encoder[-1].weight.data, std=0.01)
 
+
 class TxtEncoder(LatentCode):
     def __init__(self, in_feature, param):
         super().__init__(param)
@@ -97,6 +98,85 @@ class TxtEncoder(LatentCode):
         nn.init.normal_(self.encoder[0].weight.data, std=0.01)
         nn.init.constant_(self.encoder[0].bias.data, 0)
         nn.init.normal_(self.encoder[-1].weight.data, std=0.01)
+
+
+class ImgClassifier(nn.Module):
+    """Module for classification for visual features (image)"""
+
+    def __init__(self, in_feature, num_classes):
+        """Initialize an visual classification
+        
+        Parameter:
+        ----------
+        in_feature: feature_dimention for image features
+        num_classes: Number of classes for classification
+        
+        """
+        super().__init__()
+        ##TODO: Change output_dim if in_feature is low
+        self.fc = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(in_feature, in_feature//2),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//2, in_feature//4),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//4, in_feature//8),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//8, num_classes)
+        )
+    
+    def forward(self, x):
+        return self.fc(x)
+
+    def init_weights(self,):
+        """Initialize weights for visual classifier with pre-trained model."""
+        for name, param in self.named_parameters():
+            if "weight" in name and param.requires_grad:
+                nn.init.normal_(param.data, std=0.01)
+            elif "bias" in name and param.requires_grad:
+                nn.init.constant_(param.data, 0)  ##TODO: Do we need zero for last bias?
+
+class TxtClassifier(nn.Module):
+    """Module for classification for visual features (image)"""
+
+    def __init__(self, in_feature, num_classes):
+        """Initialize an visual classification
+        
+        Parameter:
+        ----------
+        in_feature: feature_dimention for image features
+        num_classes: Number of classes for classification
+        
+        """
+        super().__init__()
+        ##TODO: Change output_dim if in_feature is low
+        self.fc = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(in_feature, in_feature//2),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//2, in_feature//4),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//4, in_feature//8),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(in_feature//8, num_classes)
+        )
+    
+    def forward(self, x):
+        return self.fc(x)
+
+    def init_weights(self,):
+        """Initialize weights for visual classifier with pre-trained model."""
+        for name, param in self.named_parameters():
+            if "weight" in name and param.requires_grad:
+                nn.init.normal_(param.data, std=0.01)
+            elif "bias" in name and param.requires_grad:
+                nn.init.constant_(param.data, 0)  ##TODO: Do we need zero for last bias?
 
 
 class CoreMat(nn.Module):

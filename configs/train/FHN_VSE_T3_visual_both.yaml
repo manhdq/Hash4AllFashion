@@ -1,12 +1,12 @@
 data_param:
-  batch_size: 1 # batch size
-  data_root: /data # data root
-  image_root: /data # image root
+  batch_size: 2 # batch size, most ideal is 64
+  data_root: /home/ratty/Documents/Hash4All/data # data root
+  image_root: /home/ratty/Documents/Hash4All/data  # image root
   data_set: disjoint # data set
-  nega_mode: ShuffleOnline # negative outfits strategy
+  nega_mode: ShuffleDatabase # negative outfits strategy
   num_workers: 2 # number of workers
-  use_lmdb: True # use lmbd data
-  use_semantic: false # use sentance data
+  use_lmdb: true # use lmbd data
+  use_semantic: true # use sentence data
   use_visual: true # use visual data
   cate_selection: ["top", "bottom", "bag", "outerwear", "shoe"]
   num_pairwise: [2, 3, 4]
@@ -29,8 +29,8 @@ net_param:
   backbone: alexnet # backbone for feature extractor
   hash_types: 2 # type of hash codes, current only use for item
   scale_tanh: true # use scale tahn
-  use_semantic: false # use semantic features
-  use_visual: true # user visdual features
+  use_semantic: true # use semantic features
+  use_visual: true # user visual features
   margin: 0.1 # margin for vse-loss, if exists
   shared_weight_network: true
 
@@ -43,21 +43,35 @@ solver_param:
   gpus: [0]
   ##TODO: using tensorboard
   tracking_method: "tensorboard"
-  tracking_log_dir: "./logs/fashion_hash_net_t3_allFashion_noSemantic"
+  tracking_log_dir: "./logs/fashion_hash_net_t3_allFashion"
   ##TODO: Delete this visdom option
   visdom_env: fashion_hash_net
-  visdom_title: fashion_hash_net_t3_allFashion_noSemantic
-  checkpoints: ./checkpoints/fashion_hash_net_t3_allFashion_noSemantic
+  visdom_title: fashion_hash_net_t3_allFashion
+  checkpoints: ./checkpoints/fashion_hash_net_t3_allFashion
   optim_param:
     name: SGD
     # lr: [5, 0.001, 0.005, 0.005, 0.01] # learning rate for each group
     # lr: [10, 0.001, 0.01, 0.01, 0.1] # features, user_encoder, encoder_v, encoder_t, matching_weight
-    lr: [10, 0.01, 0.1]
-    weight_decay: 1.0e-06
+    # lr: [10, 0.01, 0.1]
+    # lr: [0.01, 0.001, 0.001, 0.01] # features, encoder_v, classifier_v, core
+    lr:
+      features: 0.01
+      encoder_v: 0.001
+      classifier_v: 0.001
+      encoder_t: 0.001
+      classifier_t: 0.001
+      core: 0.01
+    weight_decay:
+      features: 1.0e-05
+      encoder_v: 1.0e-05
+      classifier_v: 1.0e-05
+      encoder_t: 1.0e-05
+      classifier_t: 1.0e-05
+      core: 1.0e-05
     grad_param: { momentum: 0.9 } # setting for SGD
     lr_scheduler: ReduceLROnPlateau
     scheduler_param:
       { cooldown: 10, factor: 0.5, patience: 10, threshold: 0.05 }
 
-log_file: logs/train/fashion_hash_net_t3_allFashion_noSemantic.log
+log_file: logs/train/fashion_hash_net_t3_allFashion.log
 log_level: DEBUG

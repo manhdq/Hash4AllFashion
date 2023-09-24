@@ -1,6 +1,6 @@
-import logging
 import threading
 import numpy as np
+from functools import partial
 
 import torch
 import torch.nn as nn
@@ -8,33 +8,11 @@ import torch.nn.functional as F
 
 import utils
 import utils.config as cfg
-
+from .losses import soft_margin_loss, contrastive_loss
 from . import backbones as B
 from . import basemodel as M
 
-
 NAMED_MODEL = utils.get_named_function(B)
-LOGGER = logging.getLogger(__name__)
-
-def contrastive_loss(margin, im, s):
-    size, dim = im.shape
-    scores = im.matmul(s.t()) / dim
-    diag = scores.diag()
-    zeros = torch.zeros_like(scores)
-    # shape #item x #item
-    # sum along the row to get the VSE loss from each image
-    cost_im = torch.max(zeros, margin - diag.view(-1, 1) + scores)
-    # sum along the column to get the VSE loss from each sentence
-    cost_s = torch.max(zeros, margin - diag.view(1, -1) + scores)
-    # to fit parallel, only compute the average for each item
-    vse_loss = cost_im.sum(dim=1) + cost_s.sum(dim=0) - 2 * margin
-    # for data parallel, reshape to (size, 1)
-    return vse_loss / (size - 1)
-
-def soft_margin_loss(x):
-    target = torch.ones_like(x)
-    return F.soft_margin_loss(x, target, reduction="none")
-
 
 @utils.singleton
 class RankMetric(threading.Thread):
@@ -100,7 +78,6 @@ class FashionNet(nn.Module):
                 feat_dim = self.features.dim
                 self.encoder_v = M.ImgEncoder(feat_dim, param)
             if self.param.use_semantic:
-                ##TODO: Modify this later
                 feat_dim = 2400
                 self.encoder_t = M.TxtEncoder(feat_dim, param)
         else:
@@ -111,13 +88,20 @@ class FashionNet(nn.Module):
                     {cate_name: M.ImgEncoder(feat_dim, param) for cate_name in cate_selection}
                 )
             if self.param.use_semantic:
-                ##TODO: Modify this later
                 feat_dim = 2400
                 self.encoder_t = nn.ModuleDict(
                     {cate_name: M.TxtEncoder(feat_dim, param) for cate_name in cate_selection}
                 )
         # Classification block
-        ##TODO: Code this later
+        ##TODO: Simplify this later
+        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection]
+        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in zip(self.cate_idxs, range(len(self.cate_idxs)))}
+        self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
+        ##TODO: Code clssification module for text
+        if self.param.use_visual:
+            self.classifier_v = M.ImgClassifier(feat_dim, len(self.cate_idxs))
+        if self.param.use_semantic:
+            self.classifier_t = M.TxtClassifier(feat_dim, len(self.cate_idxs))
 
         # Matching block
         if self.param.hash_types == utils.param.NO_WEIGHTED_HASH:
@@ -132,10 +116,10 @@ class FashionNet(nn.Module):
             self.core = M.CoreMat(param.dim)
 
         if self.param.use_semantic and self.param.use_visual:
-            self.loss_weight = dict(rank_loss=1.0, binary_loss=None, vse_loss=0.1)
+            self.loss_weight = dict(rank_loss=1.0, binary_loss=None, vse_loss=0.1, cate_loss=0.8)
         else:
-            ##TODO: Set wweight for classification loss
-            self.loss_weight = dict(rank_loss=1.0, binary_loss=None)
+            ##TODO: Tune wweight for classification loss
+            self.loss_weight = dict(rank_loss=1.0, binary_loss=None, cate_loss=0.8)
         self.configure_trace()
         ##TODO: Modify this and understanding later
         ##TODO: Assume num_users is 1
@@ -234,7 +218,7 @@ class FashionNet(nn.Module):
     def latent_code(self, feat, idxs, encoder):
         """Return latent codes."""
         ##TODO: Code for multi-encoder
-        ##TODO: idxs [2, 1, 3, 2, 4, 1]?? Code later
+        ##TODO: idxs [2, 0, 3, 2, 4, 1]?? Code later
         latent_code = encoder(feat)
         # shaoe: N x D
         return latent_code
@@ -251,47 +235,66 @@ class FashionNet(nn.Module):
         bcni = self.sign(lcni)
         bpscore = self.scores(bcpi, posi_mask)
         bnscore = self.scores(bcni, nega_mask)
+
+        # latents = torch.stack(lcpi + lcni, dim=1)
+        # latents = latents.view(-1, self.param.dim)
         
         return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
 
     def visual_output(self, *inputs):
-        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
-        
+        if self.param.use_semantic:
+            posi_mask, posi_idxs, posi_imgs, _, nega_mask, nega_idxs, nega_imgs, _ = inputs
+        else:
+            posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+
         # Extract visual features
         pos_feat = self.features(posi_imgs)
         neg_feat = self.features(nega_imgs)
+
+        feats = torch.cat([pos_feat, neg_feat], dim=0)
+        
         scores, latents = self._pairwise_output(
             posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, self.encoder_v
         )
-        return scores, latents
-    
-    #TODO: modify this
+        return scores, latents, feats
+
     def semantic_output(self, *inputs):
-        posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        if self.param.use_visual:
+            posi_mask, posi_idxs, _, pos_feat, nega_mask, nega_idxs, _, neg_feat = inputs
+        else:
+            posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat = inputs
 
         scores, latents = self._pairwise_output(
-            posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs, self.encoder_t
+            posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, self.encoder_t
         )
         return scores, latents
-
+    
     def forward(self, *inputs):
         """Forward according to setting."""
         # Pair-wise output
         ##TODO: Continue with this func code
-        # posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+        if self.param.use_semantic and self.param.use_visual:
+            posi_idxs, nega_idxs = inputs[1], inputs[5]
+        else:
+            posi_idxs, nega_idxs = inputs[1], inputs[4]
+        
+        idxs = torch.cat([posi_idxs, nega_idxs])
 
         loss = dict()
         accuracy = dict()
 
         if self.param.use_semantic and self.param.use_visual:
-            score_v, latent_v = self.visual_output(*inputs)
-            score_s, latent_s = self.semantic_output(*inputs)
-            scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
+            scores, latent_v, visual_feats = self.visual_output(*inputs)
+            # score_s, latent_s = self.semantic_output(*inputs)
+            # scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
             # visual-semantic similarity
-            vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
-            loss.update(vse_loss=vse_loss)
+            # vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
+            # loss.update(vse_loss=vse_loss)
+            visual_fc = self.classifier_v(visual_feats)
+            # visual_fc = self.classifier_s(semantic_feats)
         elif self.param.use_visual:
-            scores, _ = self.visual_output(*inputs)
+            scores, _, visual_feats = self.visual_output(*inputs)
+            visual_fc = self.classifier_v(visual_feats)
         elif self.param.use_semantic:
             scores, _ = self.semantic_output(*inputs)
         else:
@@ -301,26 +304,38 @@ class FashionNet(nn.Module):
         self.rank_metric.put(data)
         diff = scores[0] - scores[1]
         binary_diff = scores[2] - scores[3]
+
+        ##### Calculate loss #####
+        # Margin loss for ranking
         rank_loss = soft_margin_loss(diff)
         binary_loss = soft_margin_loss(binary_diff)
+        cls_loss = F.cross_entropy(visual_fc, idxs, reduction='none')
+
+        ##### Calculate accuracy #####
         acc = torch.gt(diff.data, 0)
         binary_acc = torch.gt(binary_diff, 0)
-        loss.update(rank_loss=rank_loss, binary_loss=binary_loss)
-        accuracy.update(accuracy=acc, binary_accuracy=binary_acc)
+        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs)
+
+        loss.update(rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss)
+        accuracy.update(accuracy=acc, binary_accuracy=binary_acc, cate_acc=cate_acc)
         return loss, accuracy
+
+    def calc_cate_acc(self, visual_fc, idxs):
+        pred_idxs = torch.argmax(visual_fc, dim=1)
+        return torch.eq(pred_idxs, idxs)
 
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):
         feats = self.features(inputs)
-        lcis_v = self.encoder_v(feats)
+        visual_fc = self.classifier_v(feats)
 
-        ##TODO: Extract semantic if enable
+        lcis_v = self.encoder_v(feats)
         lcis_s = self.encoder_t(feats)
 
         bcis_v = self.sign(lcis_v)
         bcis_s = self.sign(lcis_s)
 
-        return lcis_v, lcis_s, bcis_v, bcis_s
+        return lcis_v, lcis_s, bcis_v, bcis_s, visual_fc
 
     def num_groups(self):
         """Size of sub-modules."""

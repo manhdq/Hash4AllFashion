@@ -26,12 +26,13 @@ def get_logger(env, config):
     elif env == "colab":
         logger = Logger(config)  # Normal logger
         logger.info(f"Logging to file {logger.logfile}")
-
     return logger
 
 
 def get_net(config, logger):
-    """Get network."""
+    """
+    Get network.
+    """
     # Get net param
     net_param = config.net_param
     logger.info(f"Initializing {utils.colour(config.net_param.name)}")
@@ -71,11 +72,15 @@ def get_net(config, logger):
 
 
 def main(config, logger):
-    """Training task"""
+    """
+    Training task
+    """
+
     # Get data for training
     train_param = config.train_data_param or config.data_param
     logger.info(f"Data set for training: \n{train_param}")
     train_loader = FashionLoader(train_param, logger)
+
     # Get data for validation
     ##TODO: Modify val_data_param in param config
     val_param = config.test_data_param or config.data_param
@@ -84,11 +89,13 @@ def main(config, logger):
 
     # Get net
     net = get_net(config, logger)
+    
     # Get solver
     solver_param = config.solver_param
     logger.info("Initialize a solver for training.")
     logger.info(f"Solver configuration: \n{solver_param}")
     solver = FashionNetSolver(solver_param, net, train_loader, val_loader, logger)
+
     # Load solver state
     if config.resume:
         solver.resume(config.resume)
@@ -102,16 +109,15 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Hashing for All Fashion scripts"
     )
-    parser.add_argument("--cfg", help="configuration file.")
-    parser.add_argument("--env", default="local", choices=["local", "colab"], 
-                    help="Using for logging option. Using logger if local, using normal print otherwise.")
+    parser.add_argument("--cfg", default="configs/train/FHN_VSE_T3_visual_both.yaml", help="configuration file.")
+    parser.add_argument("--env", default="local", choices=["local", "colab"], help="Using for logging option. Using logger if local, using normal print otherwise.")
     args = parser.parse_args()
     with open(args.cfg, "r") as f:
         kwargs = yaml.load(f, Loader=yaml.FullLoader)
     config = FashionTrainParam(**kwargs)
     config.add_timestamp()
 
-    ##TODO: Make thid dynamic
+    ##TODO: Make this dynamic
     os.makedirs("checkpoints", exist_ok=True)
 
     logger = get_logger(args.env, config)
