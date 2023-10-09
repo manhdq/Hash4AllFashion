@@ -123,4 +123,4 @@ if __name__ == "__main__":
     logger = get_logger(args.env, config)
     logger.info(f"Fashion param : {config}")
 
-    main(config, logger)
+    main(config, logger)    
