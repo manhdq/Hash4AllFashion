@@ -12,7 +12,10 @@ from .losses import soft_margin_loss, contrastive_loss
 from . import backbones as B
 from . import basemodel as M
 
+from icecream import ic
+
 NAMED_MODEL = utils.get_named_function(B)
+
 
 @utils.singleton
 class RankMetric(threading.Thread):
@@ -78,7 +81,8 @@ class FashionNet(nn.Module):
                 feat_dim = self.features.dim
                 self.encoder_v = M.ImgEncoder(feat_dim, param)
             if self.param.use_semantic:
-                feat_dim = 2400
+                # feat_dim = 2400
+                feat_dim = self.features.dim
                 self.encoder_t = M.TxtEncoder(feat_dim, param)
         else:
             ##TODO: Code forward this later
