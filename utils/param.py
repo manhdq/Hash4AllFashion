@@ -6,6 +6,8 @@ from datetime import datetime
 
 import utils.config as cfg
 
+from icecream import ic
+
 NO_WEIGHTED_HASH = 0
 WEIGHTED_HASH_U = 1
 WEIGHTED_HASH_I = 2
@@ -179,7 +181,7 @@ class DataParam(_Param):
 
     @property
     def semantic_fn(self):
-        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")
+        return os.path.join(self.data_root, "sentence_vector/semantic1.pkl")
 
     @property
     def image_list_fn(self):
