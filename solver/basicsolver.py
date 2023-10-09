@@ -9,6 +9,7 @@ from torch.nn.parallel import data_parallel
 from tensorboardX import SummaryWriter
 
 import utils
+from icecream import ic
 
 
 ##TODO: Modify this
