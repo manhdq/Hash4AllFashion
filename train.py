@@ -39,7 +39,7 @@ def get_net(config, logger):
     logger.info(net_param)
     # Dimension of latent codes
     net = FashionNet(net_param, logger, 
-                    config.train_data_param.cate_selection)
+                     config.train_data_param.cate_selection)
     # Load model from pre-trained file
     if config.load_trained:
         # Load weights from pre-trained model

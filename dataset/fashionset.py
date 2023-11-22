@@ -51,13 +51,15 @@ class Datum(object):
     Abstract class for Fashion Dataset.
     """
 
-    def __init__(self,
-                use_semantic=False,
-                semantic=None,
-                use_visual=False,
-                image_dir="",
-                lmdb_env=None,
-                transforms=None,):
+    def __init__(
+        self,
+        use_semantic=False,
+        semantic=None,
+        use_visual=False,
+        image_dir="",
+        lmdb_env=None,
+        transforms=None,
+    ):
         self.cate_dict = cfg.CateIdx
         self.cate_name = cfg.CateName
         

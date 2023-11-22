@@ -304,6 +304,7 @@ class FashionNet(nn.Module):
             scores, _ = self.semantic_output(*inputs)
         else:
             raise ValueError
+
         # print(scores) ##TODO:
         data = [s.tolist() for s in scores]
         self.rank_metric.put(data)
