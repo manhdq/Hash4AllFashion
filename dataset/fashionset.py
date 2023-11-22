@@ -16,6 +16,8 @@ import utils
 import utils.config as cfg
 from .transforms import get_img_trans
 
+from icecream import ic
+
 
 def count_pairwise(count_array: np.ndarray, num_pairwise: int):
     """
@@ -100,6 +102,7 @@ class Datum(object):
         """
         img_name = f"{id_name}.jpg"
         vec = self.semantic[img_name]
+        
         return torch.from_numpy(vec.astype(np.float32))
 
     def visual_data(self, indices):

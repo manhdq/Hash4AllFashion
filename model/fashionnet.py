@@ -189,6 +189,7 @@ class FashionNet(nn.Module):
         mask_idxs = torch.unique(mask).tolist()
 
         for idx in mask_idxs:
+            # Get all feature vectors of a batch
             sub_ilatents = ilatents[mask==idx]
             size = len(sub_ilatents)
             indx, indy = np.triu_indices(size, k=1)
@@ -289,7 +290,7 @@ class FashionNet(nn.Module):
 
         if self.param.use_semantic and self.param.use_visual:
             scores, latent_v, visual_feats = self.visual_output(*inputs)
-            # score_s, latent_s = self.semantic_output(*inputs)
+            score_s, latent_s = self.semantic_output(*inputs)
             # scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
             # visual-semantic similarity
             # vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
