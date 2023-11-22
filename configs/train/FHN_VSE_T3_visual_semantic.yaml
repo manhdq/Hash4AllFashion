@@ -1,7 +1,7 @@
 data_param:
   batch_size: 2 # batch size, most ideal is 64
-  data_root: /home/ratty/Documents/Hash4All/data # data root
-  image_root: /home/ratty/Documents/Hash4All/data  # image root
+  data_root: /home/dungmaster/Datasets/polyvore_outfits # data root
+  image_root: /home/dungmaster/Datasets/polyvore_outfits  # image root
   data_set: disjoint # data set
   nega_mode: ShuffleDatabase # negative outfits strategy
   num_workers: 2 # number of workers
