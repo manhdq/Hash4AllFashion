@@ -1,6 +1,10 @@
+**/__pycache__
+*~
+*#
 logs
 TODO.txt
-*.jpg
-*.png
-*.net
-*.pyc
+.jpg
+.png
+.net
+.pyc
+checkpoints/
