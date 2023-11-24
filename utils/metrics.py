@@ -120,8 +120,8 @@ def ndcg_score(y_score, y_label, wtype="max"):
     order = np.argsort(-y_score)
     p_label = np.take(y_label, order)
     i_label = np.sort(y_label)[::-1]
-    p_gain = 2 ** p_label - 1
-    i_gain = 2 ** i_label - 1
+    p_gain = 2**p_label - 1
+    i_gain = 2**i_label - 1
     if wtype.lower() == "max":
         discounts = np.log2(np.maximum(np.arange(len(y_label)) + 1, 2.0))
     else:
@@ -158,7 +158,7 @@ def mean_ndcg_score(u_scores, u_labels, wtype="max"):
     avg_ndcg = np.zeros(max_sample)
     for u in range(num_users):
         ndcg = ndcg_score(u_scores[u], u_labels[u], wtype)
-        avg_ndcg[:n_samples[u]] += ndcg
-        count[:n_samples[u]] += 1
+        avg_ndcg[: n_samples[u]] += ndcg
+        count[: n_samples[u]] += 1
         mean_ndcg[u] = ndcg.mean()
     return mean_ndcg, avg_ndcg / count

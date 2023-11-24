@@ -4,7 +4,6 @@ from .basicsolver import BasicSolver
 
 
 class FashionNetSolver(BasicSolver):
-    
     def adjust_before_epoch(self, epoch):
         if self.param.increase_hard:
             prob = pow(epoch / self.param.epochs, 0.5)

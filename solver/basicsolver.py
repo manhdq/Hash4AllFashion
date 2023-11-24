@@ -34,7 +34,7 @@ class BasicSolver(object):
         self.parallel, self.device = utils.get_device(param.gpus)
         self.init_optimizer(param.optim_param)
         self.init_tracking_writer(param.tracking_method)
-        
+
     def init_optimizer(self, optim_param):
         """Init optimizer."""
         # Set the optimizer
@@ -56,18 +56,24 @@ class BasicSolver(object):
 
         ##TODO: priority. Set lr param according to child name
         for name, child in self.net.named_children():
-            assert name in groups, "param name should be in " + str(list(groups.keys()))
+            assert name in groups, "param name should be in " + str(
+                list(groups.keys())
+            )
             param = groups[name]
             param_group = {"params": child.parameters()}
             param_group.update(param)
             param_groups.append(param_group)
-        
+
         self.optimizer = optimizer(param_groups, **optim_param.grad_param)
         # Set learning rate policy
         enum_lr_policy = utils.get_named_class(torch.optim.lr_scheduler)
         lr_policy = enum_lr_policy[optim_param.lr_scheduler]
-        self.ReduceLROnPlateau = optim_param.lr_scheduler == "ReduceLROnPlateau"
-        self.lr_scheduler = lr_policy(self.optimizer, **optim_param.scheduler_param)
+        self.ReduceLROnPlateau = (
+            optim_param.lr_scheduler == "ReduceLROnPlateau"
+        )
+        self.lr_scheduler = lr_policy(
+            self.optimizer, **optim_param.scheduler_param
+        )
 
     def init_tracking_writer(self, tracking_method):
         """Init tracking method."""
@@ -79,8 +85,8 @@ class BasicSolver(object):
             os.makedirs(log_dir, exist_ok=True)
             self.writer = SummaryWriter(log_dir)
         else:
-            raise # not implemented yet
-    
+            raise  # not implemented yet
+
     def gather_loss(self, losses, backward=False):
         """Gather all loss according to loss weight defined in self.net.
 
@@ -172,8 +178,10 @@ class BasicSolver(object):
         phase = "train"
         # Generate negative outfit before each epoch
         loader = self.loader[phase].make_nega()
-        self.logger.info("\n".join(["\n", "="*10, " TRAINING", "="*10]))
-        msg = "Train - Epoch[{}](%d): [%d]/[{}]:".format(epoch, loader.num_batch)
+        self.logger.info("\n".join(["\n", "=" * 10, " TRAINING", "=" * 10]))
+        msg = "Train - Epoch[{}](%d): [%d]/[{}]:".format(
+            epoch, loader.num_batch
+        )
         lastest_time = time()
         ##TODO: Replace this with wandb, comet or tensorBoard
         tracer = utils.tracer.Tracer(win_size=0, logger=self.logger)
@@ -221,7 +229,7 @@ class BasicSolver(object):
         ##TODO: Do we need make_nega for testing phase, fix this
         loader = self.loader[phase].make_nega()
         num_batch = loader.num_batch
-        self.logger.info("\n".join(["\n", "="*10, "TESTING", "="*10]))
+        self.logger.info("\n".join(["\n", "=" * 10, "TESTING", "=" * 10]))
         msg = "Epoch[{}]:Test [%d]/[{}]".format(epoch, num_batch)
         self.net.rank_metric.reset()
         test_iter = 0
@@ -269,7 +277,7 @@ class BasicSolver(object):
 
     def save_solver(self, label):
         """Save the state of solver."""
-        ##TODO: Should we modify this? 
+        ##TODO: Should we modify this?
         state_dict = {
             "net": self.net.state_dict(),
             "optim": self.optimizer.state_dict(),

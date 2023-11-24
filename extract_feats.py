@@ -7,6 +7,7 @@ import numpy as np
 import warnings
 from tqdm import tqdm
 from time import time
+
 logging.basicConfig(level=logging.INFO)
 warnings.filterwarnings("ignore")
 
@@ -24,7 +25,9 @@ from model import FashionNet
 def get_logger(env, config):
     if env == "local":
         ##TODO: Modify this logger name
-        logfile = config_log(stream_level=config.log_level, log_file=config.log_file)
+        logfile = config_log(
+            stream_level=config.log_level, log_file=config.log_file
+        )
         logger = logging.getLogger("polyvore")
         logger.info("Logging to file %s", logfile)
     elif env == "colab":
@@ -36,7 +39,9 @@ def get_logger(env, config):
 
 def get_dataset(data_param, logger):
     transforms = get_img_trans("val", data_param.image_size)
-    dataset = FashionExtractionDataset(data_param, transforms, data_param.cate_selection, logger)
+    dataset = FashionExtractionDataset(
+        data_param, transforms, data_param.cate_selection, logger
+    )
 
     return dataset
 
@@ -47,12 +52,11 @@ def get_net(config, logger):
     net_param = config.net_param
     logger.info(f"Initializing {utils.colour(config.net_param.name)}")
     logger.info(net_param)
-    
+
     assert config.load_trained is not None
 
     # Dimension of latent codes
-    net = FashionNet(net_param, logger, 
-                    config.train_data_param.cate_selection)
+    net = FashionNet(net_param, logger, config.train_data_param.cate_selection)
     # Load model from pre-trained file
     num_devices = torch.cuda.device_count()
     map_location = {"cuda:{}".format(i): "cpu" for i in range(num_devices)}
@@ -82,7 +86,7 @@ def main(config, logger):
     datasets = [trainset, valset]
 
     cat2idx = cfg.CateIdx
-    idx2cat = {v:k for k, v in cat2idx.items()}
+    idx2cat = {v: k for k, v in cat2idx.items()}
     cate_idxs = trainset.cate_idxs
 
     feats_latent_visual_dict = {}
@@ -91,8 +95,12 @@ def main(config, logger):
     logits_visual_dict = {}
     # feats_binary_semantic_dict = {}
     for phase in phases:
-        feats_latent_visual_dict[phase] = {cate: {} for cate in train_param.cate_selection}
-        feats_binary_visual_dict[phase] = {cate: {} for cate in train_param.cate_selection}
+        feats_latent_visual_dict[phase] = {
+            cate: {} for cate in train_param.cate_selection
+        }
+        feats_binary_visual_dict[phase] = {
+            cate: {} for cate in train_param.cate_selection
+        }
         logits_visual_dict[phase] = {}
 
     # Get net
@@ -104,26 +112,58 @@ def main(config, logger):
     # Get features embedding
     for phase, dataset in zip(phases, datasets):
         lastest_time = time()
-        for data_input in tqdm(dataset, desc="Trainset extraction:", total=len(dataset)):
+        for data_input in tqdm(
+            dataset, desc="Trainset extraction:", total=len(dataset)
+        ):
             outfit_idxs, tpl_names, inputs = data_input
             inputs = torch.stack(inputs, 0)
             inputs = utils.to_device(inputs, device)
             data_time = time() - lastest_time
-            lcis_v, lcis_s, bcis_v, bcis_s, visual_logits = net.extract_features(inputs)
+            (
+                lcis_v,
+                lcis_s,
+                bcis_v,
+                bcis_s,
+                visual_logits,
+            ) = net.extract_features(inputs)
 
             lcis_v = [lci_v.cpu().detach().numpy() for lci_v in lcis_v]
-            lcis_s = [None for _ in range(len(lcis_v))]  ##TODO: Modify for semantic later
+            lcis_s = [
+                None for _ in range(len(lcis_v))
+            ]  ##TODO: Modify for semantic later
             bcis_v = [bci_v.cpu().detach().numpy() for bci_v in bcis_v]
             bcis_s = [None for _ in range(len(bcis_v))]
-            visual_logits = [visual_logit.cpu().detach().numpy() for visual_logit in visual_logits]
+            visual_logits = [
+                visual_logit.cpu().detach().numpy()
+                for visual_logit in visual_logits
+            ]
 
             model_run_time = time() - lastest_time
-            
-            for outfit_idx, sample_name, lci_v, lci_s, bci_v, bci_s, visual_logit in \
-                    zip(outfit_idxs, tpl_names, lcis_v, lcis_s, bcis_v, bcis_s, visual_logits):
+
+            for (
+                outfit_idx,
+                sample_name,
+                lci_v,
+                lci_s,
+                bci_v,
+                bci_s,
+                visual_logit,
+            ) in zip(
+                outfit_idxs,
+                tpl_names,
+                lcis_v,
+                lcis_s,
+                bcis_v,
+                bcis_s,
+                visual_logits,
+            ):
                 cate_name = idx2cat[outfit_idx]
-                feats_latent_visual_dict[phase][cate_name][str(sample_name)] = lci_v
-                feats_binary_visual_dict[phase][cate_name][str(sample_name)] = bci_v
+                feats_latent_visual_dict[phase][cate_name][
+                    str(sample_name)
+                ] = lci_v
+                feats_binary_visual_dict[phase][cate_name][
+                    str(sample_name)
+                ] = bci_v
                 logits_visual_dict[phase][str(sample_name)] = visual_logit
 
             data_times.append(data_time)
@@ -132,17 +172,35 @@ def main(config, logger):
 
             # Save memory
             del lcis_v, lcis_s, bcis_v, bcis_s
-        
-        feats_latent_visual_file = os.path.join(config.feature_folder, f"{phase}_latent_visual.pkl")
-        feats_binary_visual_file = os.path.join(config.feature_folder, f"{phase}_binary_visual.pkl")
-        logits_visual_file = os.path.join(config.feature_folder, f"{phase}_visual_logits.pkl")
+
+        feats_latent_visual_file = os.path.join(
+            config.feature_folder, f"{phase}_latent_visual.pkl"
+        )
+        feats_binary_visual_file = os.path.join(
+            config.feature_folder, f"{phase}_binary_visual.pkl"
+        )
+        logits_visual_file = os.path.join(
+            config.feature_folder, f"{phase}_visual_logits.pkl"
+        )
 
         with open(feats_latent_visual_file, "wb") as handle:
-            pickle.dump(feats_latent_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                feats_latent_visual_dict[phase],
+                handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
         with open(feats_binary_visual_file, "wb") as handle:
-            pickle.dump(feats_binary_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                feats_binary_visual_dict[phase],
+                handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
         with open(logits_visual_file, "wb") as handle:
-            pickle.dump(logits_visual_dict[phase], handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(
+                logits_visual_dict[phase],
+                handle,
+                protocol=pickle.HIGHEST_PROTOCOL,
+            )
 
     print(f"--Total data time: {np.sum(data_times):.3f}s")
     print(f"--Average data time: {np.mean(data_times):.3f}s")
@@ -154,11 +212,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="Hash for All Fashion",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Hashing for All Fashion scripts"
+        description="Hashing for All Fashion scripts",
     )
     parser.add_argument("--cfg", help="configuration file.")
-    parser.add_argument("--env", default="local", choices=["local", "colab"], 
-                    help="Using for logging option. Using logger if local, using normal print otherwise.")
+    parser.add_argument(
+        "--env",
+        default="local",
+        choices=["local", "colab"],
+        help="Using for logging option. Using logger if local, using normal print otherwise.",
+    )
     args = parser.parse_args()
     with open(args.cfg, "r") as f:
         kwargs = yaml.load(f, Loader=yaml.FullLoader)

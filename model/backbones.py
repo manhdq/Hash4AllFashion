@@ -69,14 +69,21 @@ class AlexNet(nn.Module):
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(
-        in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False
+        in_planes,
+        out_planes,
+        kernel_size=3,
+        stride=stride,
+        padding=1,
+        bias=False,
     )
 
 
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, inplanes, planes, stride=1, num_group=32, downsample=None):
+    def __init__(
+        self, inplanes, planes, stride=1, num_group=32, downsample=None
+    ):
         super(BasicBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
         self.gn1 = nn.GroupNorm(num_group, planes)
@@ -108,7 +115,9 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     expansion = 4
 
-    def __init__(self, inplanes, planes, stride=1, num_group=32, downsample=None):
+    def __init__(
+        self, inplanes, planes, stride=1, num_group=32, downsample=None
+    ):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.gn1 = nn.GroupNorm(num_group, planes)
@@ -146,14 +155,20 @@ class Bottleneck(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, block, layers, num_classes=1000, num_group=32, tailed=False):
+    def __init__(
+        self, block, layers, num_classes=1000, num_group=32, tailed=False
+    ):
         self.inplanes = 64
         super(ResNet, self).__init__()
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(
+            3, 64, kernel_size=7, stride=2, padding=3, bias=False
+        )
         self.gn1 = nn.GroupNorm(num_group, 64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        self.layer1 = self._make_layer(block, 64, layers[0], num_group=num_group)
+        self.layer1 = self._make_layer(
+            block, 64, layers[0], num_group=num_group
+        )
         self.layer2 = self._make_layer(
             block, 128, layers[1], stride=2, num_group=num_group
         )
@@ -200,7 +215,9 @@ class ResNet(nn.Module):
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, num_group, downsample))
+        layers.append(
+            block(self.inplanes, planes, stride, num_group, downsample)
+        )
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, num_group=num_group))

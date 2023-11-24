@@ -3,6 +3,7 @@ import argparse
 import os
 import logging
 import warnings
+
 logging.basicConfig(level=logging.INFO)
 warnings.filterwarnings("ignore")
 
@@ -20,7 +21,9 @@ from solver import FashionNetSolver
 def get_logger(env, config):
     if env == "local":
         ##TODO: Modify this logger name
-        logfile = config_log(stream_level=config.log_level, log_file=config.log_file)
+        logfile = config_log(
+            stream_level=config.log_level, log_file=config.log_file
+        )
         logger = logging.getLogger("polyvore")
         logger.info("Logging to file %s", logfile)
     elif env == "colab":
@@ -38,8 +41,7 @@ def get_net(config, logger):
     logger.info(f"Initializing {utils.colour(config.net_param.name)}")
     logger.info(net_param)
     # Dimension of latent codes
-    net = FashionNet(net_param, logger, 
-                     config.train_data_param.cate_selection)
+    net = FashionNet(net_param, logger, config.train_data_param.cate_selection)
     # Load model from pre-trained file
     if config.load_trained:
         # Load weights from pre-trained model
@@ -54,7 +56,9 @@ def get_net(config, logger):
             logger.info("Reset the user embedding")
             # TODO: use more decent way to load pre-trained model for new user
             weight = "user_embedding.encoder.weight"
-            state_dict[weight] = torch.zeros(net_param.dim, net_param.num_users)
+            state_dict[weight] = torch.zeros(
+                net_param.dim, net_param.num_users
+            )
             net.load_state_dict(state_dict)
             ##TODO:
             net.user_embedding.init_weights()
@@ -89,12 +93,14 @@ def main(config, logger):
 
     # Get net
     net = get_net(config, logger)
-    
+
     # Get solver
     solver_param = config.solver_param
     logger.info("Initialize a solver for training.")
     logger.info(f"Solver configuration: \n{solver_param}")
-    solver = FashionNetSolver(solver_param, net, train_loader, val_loader, logger)
+    solver = FashionNetSolver(
+        solver_param, net, train_loader, val_loader, logger
+    )
 
     # Load solver state
     if config.resume:
@@ -107,10 +113,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="Hash for All Fashion",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        description="Hashing for All Fashion scripts"
+        description="Hashing for All Fashion scripts",
     )
-    parser.add_argument("--cfg", default="configs/train/FHN_VSE_T3_visual_both.yaml", help="configuration file.")
-    parser.add_argument("--env", default="local", choices=["local", "colab"], help="Using for logging option. Using logger if local, using normal print otherwise.")
+    parser.add_argument(
+        "--cfg",
+        default="configs/train/FHN_VSE_T3_visual_both.yaml",
+        help="configuration file.",
+    )
+    parser.add_argument(
+        "--env",
+        default="local",
+        choices=["local", "colab"],
+        help="Using for logging option. Using logger if local, using normal print otherwise.",
+    )
     args = parser.parse_args()
     with open(args.cfg, "r") as f:
         kwargs = yaml.load(f, Loader=yaml.FullLoader)
@@ -123,4 +138,4 @@ if __name__ == "__main__":
     logger = get_logger(args.env, config)
     logger.info(f"Fashion param : {config}")
 
-    main(config, logger)    
+    main(config, logger)

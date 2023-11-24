@@ -28,7 +28,9 @@ class RankMetric(threading.Thread):
         self.queue = Queue()
         self.daemon = True
         self.num_users = num_users
-        self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]  ##TODO: What is 4?
+        self._scores = [
+            [[] for _ in range(self.num_users)] for _ in range(4)
+        ]  ##TODO: What is 4?
 
     def reset(self):
         self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]
@@ -59,7 +61,9 @@ class RankMetric(threading.Thread):
         binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
         ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
         binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
-        return dict(auc=auc, binary_auc=binary_auc, ndcg=ndcg, binary_ndcg=binary_ndcg)
+        return dict(
+            auc=auc, binary_auc=binary_auc, ndcg=ndcg, binary_ndcg=binary_ndcg
+        )
 
 
 class FashionNet(nn.Module):
@@ -89,18 +93,31 @@ class FashionNet(nn.Module):
             if self.param.use_visual:
                 feat_dim = self.features.dim
                 self.encoder_v = nn.ModuleDict(
-                    {cate_name: M.ImgEncoder(feat_dim, param) for cate_name in cate_selection}
+                    {
+                        cate_name: M.ImgEncoder(feat_dim, param)
+                        for cate_name in cate_selection
+                    }
                 )
             if self.param.use_semantic:
                 feat_dim = 2400
                 self.encoder_t = nn.ModuleDict(
-                    {cate_name: M.TxtEncoder(feat_dim, param) for cate_name in cate_selection}
+                    {
+                        cate_name: M.TxtEncoder(feat_dim, param)
+                        for cate_name in cate_selection
+                    }
                 )
         # Classification block
         ##TODO: Simplify this later
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection]
-        self.cate_idxs_to_tensor_idxs = {cate_idx: tensor_idx for cate_idx, tensor_idx in zip(self.cate_idxs, range(len(self.cate_idxs)))}
-        self.tensor_idxs_to_cate_idxs = {v: k for k, v in self.cate_idxs_to_tensor_idxs.items()}
+        self.cate_idxs_to_tensor_idxs = {
+            cate_idx: tensor_idx
+            for cate_idx, tensor_idx in zip(
+                self.cate_idxs, range(len(self.cate_idxs))
+            )
+        }
+        self.tensor_idxs_to_cate_idxs = {
+            v: k for k, v in self.cate_idxs_to_tensor_idxs.items()
+        }
         ##TODO: Code clssification module for text
         if self.param.use_visual:
             self.classifier_v = M.ImgClassifier(feat_dim, len(self.cate_idxs))
@@ -113,17 +130,23 @@ class FashionNet(nn.Module):
             self.core = M.LearnableScale(1)
         elif self.param.hash_types == utils.param.WEIGHTED_HASH_BOTH:
             # two weighted hashing for both user-item and item-item
-            self.core = nn.ModuleList([M.CoreMat(param.dim), M.CoreMat(param.dim)])
+            self.core = nn.ModuleList(
+                [M.CoreMat(param.dim), M.CoreMat(param.dim)]
+            )
         else:
             # Single weighed hashing for user-item or item-item, current only use for item
             ##TODO: Code this for very later
             self.core = M.CoreMat(param.dim)
 
         if self.param.use_semantic and self.param.use_visual:
-            self.loss_weight = dict(rank_loss=1.0, binary_loss=None, vse_loss=0.1, cate_loss=0.8)
+            self.loss_weight = dict(
+                rank_loss=1.0, binary_loss=None, vse_loss=0.1, cate_loss=0.8
+            )
         else:
             ##TODO: Tune wweight for classification loss
-            self.loss_weight = dict(rank_loss=1.0, binary_loss=None, cate_loss=0.8)
+            self.loss_weight = dict(
+                rank_loss=1.0, binary_loss=None, cate_loss=0.8
+            )
         self.configure_trace()
         ##TODO: Modify this and understanding later
         ##TODO: Assume num_users is 1
@@ -190,7 +213,7 @@ class FashionNet(nn.Module):
 
         for idx in mask_idxs:
             # Get all feature vectors of a batch
-            sub_ilatents = ilatents[mask==idx]
+            sub_ilatents = ilatents[mask == idx]
             size = len(sub_ilatents)
             indx, indy = np.triu_indices(size, k=1)
             # comb x D
@@ -212,7 +235,7 @@ class FashionNet(nn.Module):
 
     def sign(self, x):
         """Return hash code of x.
-        
+
         if x is {1, -1} binary, then h(x) = sign(x)
         if x is {1, 0} binary, then h(x) = (sign(x - 0.5) + 1)/2
         """
@@ -229,7 +252,16 @@ class FashionNet(nn.Module):
         return latent_code
 
     ##TODO: Modify for not `shared weight` option, add user for very later
-    def _pairwise_output(self, posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, encoder):
+    def _pairwise_output(
+        self,
+        posi_mask,
+        posi_idxs,
+        pos_feat,
+        nega_mask,
+        nega_idxs,
+        neg_feat,
+        encoder,
+    ):
         lcpi = self.latent_code(pos_feat, posi_idxs, encoder)
         lcni = self.latent_code(neg_feat, nega_idxs, encoder)
         # Score with relaxed features
@@ -243,37 +275,81 @@ class FashionNet(nn.Module):
 
         # latents = torch.stack(lcpi + lcni, dim=1)
         # latents = latents.view(-1, self.param.dim)
-        
+
         return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
 
     def visual_output(self, *inputs):
         if self.param.use_semantic:
-            posi_mask, posi_idxs, posi_imgs, _, nega_mask, nega_idxs, nega_imgs, _ = inputs
+            (
+                posi_mask,
+                posi_idxs,
+                posi_imgs,
+                _,
+                nega_mask,
+                nega_idxs,
+                nega_imgs,
+                _,
+            ) = inputs
         else:
-            posi_mask, posi_idxs, posi_imgs, nega_mask, nega_idxs, nega_imgs = inputs
+            (
+                posi_mask,
+                posi_idxs,
+                posi_imgs,
+                nega_mask,
+                nega_idxs,
+                nega_imgs,
+            ) = inputs
 
         # Extract visual features
         pos_feat = self.features(posi_imgs)
         neg_feat = self.features(nega_imgs)
 
         feats = torch.cat([pos_feat, neg_feat], dim=0)
-        
+
         scores, latents = self._pairwise_output(
-            posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, self.encoder_v
+            posi_mask,
+            posi_idxs,
+            pos_feat,
+            nega_mask,
+            nega_idxs,
+            neg_feat,
+            self.encoder_v,
         )
         return scores, latents, feats
 
     def semantic_output(self, *inputs):
         if self.param.use_visual:
-            posi_mask, posi_idxs, _, pos_feat, nega_mask, nega_idxs, _, neg_feat = inputs
+            (
+                posi_mask,
+                posi_idxs,
+                _,
+                pos_feat,
+                nega_mask,
+                nega_idxs,
+                _,
+                neg_feat,
+            ) = inputs
         else:
-            posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat = inputs
+            (
+                posi_mask,
+                posi_idxs,
+                pos_feat,
+                nega_mask,
+                nega_idxs,
+                neg_feat,
+            ) = inputs
 
         scores, latents = self._pairwise_output(
-            posi_mask, posi_idxs, pos_feat, nega_mask, nega_idxs, neg_feat, self.encoder_t
+            posi_mask,
+            posi_idxs,
+            pos_feat,
+            nega_mask,
+            nega_idxs,
+            neg_feat,
+            self.encoder_t,
         )
         return scores, latents
-    
+
     def forward(self, *inputs):
         """Forward according to setting."""
         # Pair-wise output
@@ -282,7 +358,7 @@ class FashionNet(nn.Module):
             posi_idxs, nega_idxs = inputs[1], inputs[5]
         else:
             posi_idxs, nega_idxs = inputs[1], inputs[4]
-        
+
         idxs = torch.cat([posi_idxs, nega_idxs])
 
         loss = dict()
@@ -315,15 +391,19 @@ class FashionNet(nn.Module):
         # Margin loss for ranking
         rank_loss = soft_margin_loss(diff)
         binary_loss = soft_margin_loss(binary_diff)
-        cls_loss = F.cross_entropy(visual_fc, idxs, reduction='none')
+        cls_loss = F.cross_entropy(visual_fc, idxs, reduction="none")
 
         ##### Calculate accuracy #####
         acc = torch.gt(diff.data, 0)
         binary_acc = torch.gt(binary_diff, 0)
         cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs)
 
-        loss.update(rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss)
-        accuracy.update(accuracy=acc, binary_accuracy=binary_acc, cate_acc=cate_acc)
+        loss.update(
+            rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss
+        )
+        accuracy.update(
+            accuracy=acc, binary_accuracy=binary_acc, cate_acc=cate_acc
+        )
         return loss, accuracy
 
     def calc_cate_acc(self, visual_fc, idxs):

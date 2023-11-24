@@ -34,7 +34,11 @@ def get_img_trans(phase, image_size=291):
     if phase == "train":
         if image_size == 291:
             return transforms.Compose(
-                [transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize]
+                [
+                    transforms.RandomHorizontalFlip(),
+                    transforms.ToTensor(),
+                    normalize,
+                ]
             )
         return transforms.Compose(
             [

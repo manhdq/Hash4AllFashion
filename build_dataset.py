@@ -9,7 +9,7 @@ import utils
 def create_lmdb(dataset, image_dir):
     print(f"Creating LMDB to {dataset}")
     image_list = utils.check.list_files(image_dir)
-    env = lmdb.open(dataset, map_size=2 ** 40)
+    env = lmdb.open(dataset, map_size=2**40)
     # open json file
     with env.begin(write=True) as txn:
         for image_name in tqdm(image_list):
@@ -27,9 +27,11 @@ if __name__ == "__main__":
         "--src",
         type=str,
         help="image folder for fashion dataset",
-        required=True
+        required=True,
     )
-    parser.add_argument("--dst", type=str, help="folder to save lmdb", required=True)
+    parser.add_argument(
+        "--dst", type=str, help="folder to save lmdb", required=True
+    )
     args = parser.parse_args()
 
     os.makedirs(args.dst, exist_ok=True)
