@@ -1,10 +1,12 @@
-opencv - python
+opencv-python-headless
 numpy
 torch
 torchvision
-scikit - learn
+scikit-learn
 lmdb
 tensorboardX
 pickle5
 icecream
 snoop
+rembg
+albumentations
