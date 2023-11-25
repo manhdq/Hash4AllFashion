@@ -120,6 +120,7 @@ class DataParam(_Param):
         nega_mode="RandomOnline",  # mode for negative outfits
         data_root="data/polyvore",  # data root
         list_fmt="image_list_{}",
+        outfit_desc=None,
         use_semantic=False,
         use_visual=True,
         image_root=None,  # image root if it's saved in another place
@@ -199,6 +200,10 @@ class DataParam(_Param):
     @property
     def data_csv(self):
         return os.path.join(self.data_root, self.data_set, f"{self.phase}.csv")
+
+    @property
+    def outfit_semantic(self):
+        return os.path.join(self.data_root, self.data_set, f"{self.outfit_desc}.pkl")
 
     @property
     def semantic_fn(self):
