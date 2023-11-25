@@ -3,9 +3,10 @@ data_param:
   data_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware # data root
   image_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware  # image root
   data_set: train # data set
+  outfit_desc: outfit_description # description embedding of outfits
   nega_mode: RandomOnline # negative outfits strategy
   num_workers: 2 # number of workers
-  use_lmdb: false # use lmbd data
+  use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
   cate_selection: ["top", "bottom", "bag", "outerwear", "accessory", "full-body", "footwear"]
