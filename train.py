@@ -25,7 +25,7 @@ def get_logger(env, config):
         logfile = config_log(
             stream_level=config.log_level, log_file=config.log_file
         )
-        logger = logging.getLogger("polyvore")
+        logger = logging.getLogger("fashion32")
         logger.info("Logging to file %s", logfile)
     elif env == "colab":
         logger = Logger(config)  # Normal logger
