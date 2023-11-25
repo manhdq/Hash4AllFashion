@@ -7,6 +7,8 @@ from utils.logger import Logger, config_log
 from dataset.fashionset_v2 import FashionDataset
 from dataset.transforms import get_img_trans
 
+import matplotlib.pyplot as plt
+
 # %%
 cfg_file = "../configs/train/FHN_VSE_T3_visual_new.yaml"
 with open(cfg_file, "r") as f:
@@ -26,19 +28,21 @@ cate_selection = param.cate_selection
 # %%
 transforms = get_img_trans(param.phase, param.image_size)
 dataset = FashionDataset(
-    param, transforms, cate_selection.copy(), logger
+    param, transforms, cate_selection, logger
 )
 
 # %%
-dataset.num_posi, dataset.num_nega
+dataset[0]
 
 # %%
-dataset.nega_df
+dataset.nega_df.head(5)
 
 # %%
-param.image_dir, param.data_mode
+dataset.posi_df.head(5)
 
 # %%
-5 // 0.8
+image = dataset.datum.load_image("10269_9708_31264127289.jpg")
+image = dataset.datum.load_image("11436_9728_30492806793.jpg")
+plt.imshow(image)
 
 # %%
