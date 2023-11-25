@@ -1,6 +1,7 @@
 import logging
 import os
-import pickle5 as pickle
+# import pickle5 as pickle
+import pickle
 import lmdb
 import numpy as np
 import pandas as pd
@@ -8,14 +9,14 @@ import six
 import tqdm
 from scipy.special import factorial
 from PIL import Image
+import cv2
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 
 import utils
-# import utils.config as cfg
 import utils.config_v2 as cfg
-from .transforms import get_img_trans
+from .transforms_v2 import get_img_trans
 
 from icecream import ic
 
@@ -89,15 +90,22 @@ class Datum(object):
             # Read with lmdb format
             with self.lmdb_env.begin(write=False) as txn:
                 imgbuf = txn.get(img_name.encode())
-            buf = six.BytesIO()
-            buf.write(imgbuf)
-            buf.seek(0)
-            img = Image.open(buf).convert("RGB")
+
+            # convert it to numpy
+            image = np.frombuffer(imgbuf, dtype=np.uint8)  
+            # decode image
+            image = cv2.imdecode(image, cv2.IMREAD_COLOR)  
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # buf = six.BytesIO()
+            # buf.write(imgbuf)
+            # buf.seek(0)
+            # img = Image.open(buf).convert("RGB")
         else:
             # Read from raw image
             path = os.path.join(self.image_dir, img_name)
-            with open(path, "rb") as f:
-                img = Image.open(f).convert("RGB")
+            img = cv2.imread(path)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
 
     def load_semantics(self, id_name):
@@ -118,16 +126,17 @@ class Datum(object):
         images = []
         for id_name in indices:
             if id_name == "-1":
+                # why this array?
                 img = (
                     np.ones((300, 300, 3), dtype=np.uint8) * 127
                 )  # Gray image
-                img = Image.fromarray(img)
+                # img = Image.fromarray(img)
                 if self.transforms:
-                    img = self.transforms(img)
+                    img = self.transforms(image=img)["image"]
             else:
                 img = self.load_image(id_name)
                 if self.transforms:
-                    img = self.transforms(img)
+                    img = self.transforms(image=img)["image"]
             images.append(img)
         return images
 
@@ -247,7 +256,14 @@ class FashionDataset(Dataset):
         self.logger = logger
 
         self.df = pd.read_csv(self.param.data_csv)
+        outfit_semantic = param.outfit_semantic
+
+        with open(outfit_semantic, "rb") as f:
+            self.outfit_semantic = pickle.load(f)
+            f.close()
+        
         num_pairwise_list = param.num_pairwise
+
         self.logger.info("")
         self.logger.info("Dataframe processing...")
 
@@ -291,9 +307,10 @@ class FashionDataset(Dataset):
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
         )
+        self.outfit_ids = self.df["outfit_id"].tolist()
 
         self.df_drop = self.df.reset_index(drop=True).drop(
-            "compatible", axis=1
+            ["outfit_id", "compatible"], axis=1
         )
 
         # Create item_list and remove -1 value
@@ -301,10 +318,11 @@ class FashionDataset(Dataset):
             list(set(self.df_drop.iloc[:, i]))
             for i in range(len(self.df_drop.columns))
         ]
+
         for idx, _ in enumerate(self.item_list):
             try:
                 self.item_list[idx].remove("-1")
-            except:
+            except Exception:
                 continue
 
         num_row_after = len(self.df)
@@ -327,12 +345,12 @@ class FashionDataset(Dataset):
         self.posi_df_ori = (
             self.df[self.df.compatible == 1]
             .reset_index(drop=True)
-            .drop("compatible", axis=1)
+            .drop(["outfit_id", "compatible"], axis=1)
         )
         self.nega_df_ori = (
             self.df[self.df.compatible == 0]
             .reset_index(drop=True)
-            .drop("compatible", axis=1)
+            .drop(["outfit_id", "compatible"], axis=1)
         )
 
         assert len(self.posi_df_ori) + len(self.nega_df_ori) == len(self.df)
@@ -410,7 +428,8 @@ class FashionDataset(Dataset):
             # TODO: what if current row of nega_df match other row of posi_df? 
             # TODO: add description embedding of each outfit
             while (self.posi_df.loc[i] == df_nega.loc[i]).all():
-                df_nega.loc[i] = list(
+                outfit_id = row.outfit_id
+                df_nega.loc[i] = [outfit_id] + list(
                     np.random.choice(self.item_list[i], 1)
                     for i in range(len(self.item_list))
                 )
@@ -472,8 +491,8 @@ class FashionDataset(Dataset):
 
     def get_new_data_with_new_cate_selection(self, df, cate_selection):
         df = df.copy()
-        df = df[cate_selection]
-        df_count = (df.to_numpy()[..., :-1] != "-1").astype(int).sum(axis=-1)
+        # df = df[cate_selection]
+        df_count = (df[cate_selection].to_numpy()[..., :-1] != "-1").astype(int).sum(axis=-1)
         return df[df_count > 1]
 
     def get_pair_list(self, num_pairwise_list, df):
@@ -499,6 +518,7 @@ class FashionDataset(Dataset):
     def get_tuple(self, df, idx, include_null=False):
         """Return item's cate ids and item ids of the outfit"""
         raw_tuple = df.iloc[idx]
+        oid = self.outfit_ids[idx]
 
         if include_null:
             outfit_tuple = raw_tuple.copy()
@@ -508,14 +528,19 @@ class FashionDataset(Dataset):
         outfit_idxs = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
-        return outfit_idxs, outfit_tuple.values.tolist()
+        return oid, outfit_idxs, outfit_tuple.values.tolist()
 
     def _PairWise(self, index):
         """Get a pair of outfits."""
-        posi_idxs, posi_tpl = self.get_tuple(
+        posi_oid, posi_idxs, posi_tpl = self.get_tuple(
             self.posi_df, int(index // self.ratio)
         )
-        nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
+        nega_oid, nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
+
+        assert posi_oid == nega_oid
+
+        # Get semantic embedding of outfits
+        outfit_v = self.outfit_semantic[posi_oid]
 
         ## Mapping to tensor idxs for classification training
         posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))
@@ -524,7 +549,7 @@ class FashionDataset(Dataset):
         ##TODO: Dynamic options for visual and semantic selections
         posi_v, posi_s = self.datum.get(posi_tpl)
         nega_v, nega_s = self.datum.get(nega_tpl)
-        return ((posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
+        return (outfit_v, (posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
@@ -580,7 +605,11 @@ class FashionLoader(object):
         )
         transforms = get_img_trans(param.phase, param.image_size)
         self.dataset = FashionDataset(
-            param, transforms, self.cate_selection.copy(), logger
+            param,
+            transforms,
+            # self.cate_selection.copy(),
+            self.cate_selection,            
+            logger
         )
         
         self.loader = DataLoader(
