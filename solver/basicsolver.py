@@ -302,8 +302,11 @@ class BasicSolver(object):
         """Save the net's state."""
         ##TODO: Should we split state_dict to sub modules state dict for later easy load checkpoints??
         model_path = self.format_filepath(label, "net")
+        encoder_o_path = self.format_filepath(label, "enc_o")
         self.logger.info("Save net state to %s" % model_path)
+        self.logger.info("Save outfit semantic encoder state to %s" % encoder_o_path)        
         torch.save(self.net.state_dict(), model_path)
+        torch.save(self.net.encoder_o.state_dict(), encoder_o_path)        
 
     def format_filepath(self, label, suffix):
         """Return file-path."""
