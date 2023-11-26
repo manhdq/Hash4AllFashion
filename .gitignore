@@ -8,7 +8,7 @@ TODO.txt
 .net
 .pyc
 checkpoints/
-test_code/
 reproducible_code/
+test_code/*
 
-!test_code/load_dataset.py
+!test_code/model_forward.py
