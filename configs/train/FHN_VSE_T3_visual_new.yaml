@@ -27,13 +27,16 @@ net_param:
   name: FashionNet
   num_users: 1 # number of users ##TODO: Later
   dim: 128 # dimension of binary codes
+  outfit_semantic_dim: 512 # dimension of outfit embedding vector
   backbone: alexnet # backbone for feature extractor
-  hash_types: 2 # type of hash codes, current only use for item
+  hash_types: 3 # type of hash codes, current only use for item
   scale_tanh: true # use scale tanh
   use_semantic: false # use semantic features
   use_visual: true # user visdual features
   margin: 0.1 # margin for vse-loss, if exists
   shared_weight_network: true
+  pairwise_weight: 1.0
+  outfit_semantic_weight: 1.5
 
 solver_param:
   name: "FashionNetSolver"
@@ -58,11 +61,13 @@ solver_param:
     lr:
       features: 0.01
       encoder_v: 0.001
+      encoder_o: 0.001      
       classifier_v: 0.001
       core: 0.01
     weight_decay:
       features: 1.0e-05
       encoder_v: 1.0e-05
+      encoder_o: 1.0e-05      
       classifier_v: 1.0e-05
       core: 1.0e-05
     grad_param: { momentum: 0.9 } # setting for SGD
@@ -70,5 +75,6 @@ solver_param:
     scheduler_param:
       { cooldown: 10, factor: 0.5, patience: 10, threshold: 0.05 }
 
+# load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
 log_file: logs/train/fashion_hash_net_t3_allFashion_noSemantic.log
 log_level: DEBUG
