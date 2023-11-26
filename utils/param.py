@@ -203,7 +203,7 @@ class DataParam(_Param):
 
     @property
     def outfit_semantic(self):
-        return os.path.join(self.data_root, self.data_set, f"{self.outfit_desc}.pkl")
+        return os.path.join(self.data_root, f"{self.outfit_desc}.pkl")
 
     @property
     def semantic_fn(self):
@@ -254,6 +254,7 @@ class NetParam(_Param):
         name="FashionNet",
         num_users=630,
         dim=128,
+        outfit_semantic_dim=512,
         single=False,
         binary01=False,
         triplet=False,
@@ -269,6 +270,8 @@ class NetParam(_Param):
         margin=None,
         debug=False,
         shared_weight_network=False,
+        pairwise_weight=1.0,
+        outfit_semantic_weight=1.0
     )
 
     def setup(self):
