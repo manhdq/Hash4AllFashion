@@ -44,7 +44,6 @@ def open_lmdb(path):
         meminit=False,
     )
 
-
 def load_semantic_data(semantic_fn):
     """Load semantic data."""
     data_fn = os.path.join(semantic_fn)
@@ -91,6 +90,9 @@ class Datum(object):
             with self.lmdb_env.begin(write=False) as txn:
                 imgbuf = txn.get(img_name.encode())
 
+            # if imgbuf is None:
+            #     ic(img_name)
+                
             # convert it to numpy
             image = np.frombuffer(imgbuf, dtype=np.uint8)  
             # decode image
@@ -255,12 +257,8 @@ class FashionDataset(Dataset):
         self.param = param
         self.logger = logger
 
-        self.df = pd.read_csv(self.param.data_csv)
-        outfit_semantic = param.outfit_semantic
-
-        with open(outfit_semantic, "rb") as f:
-            self.outfit_semantic = pickle.load(f)
-            f.close()
+        self.df = pd.read_csv(param.data_csv)
+        self.outfit_semantic = load_semantic_data(param.outfit_semantic)
         
         num_pairwise_list = param.num_pairwise
 
@@ -540,7 +538,7 @@ class FashionDataset(Dataset):
         assert posi_oid == nega_oid
 
         # Get semantic embedding of outfits
-        outfit_v = self.outfit_semantic[posi_oid]
+        outf_s = self.outfit_semantic[posi_oid]
 
         ## Mapping to tensor idxs for classification training
         posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))
@@ -549,7 +547,7 @@ class FashionDataset(Dataset):
         ##TODO: Dynamic options for visual and semantic selections
         posi_v, posi_s = self.datum.get(posi_tpl)
         nega_v, nega_s = self.datum.get(nega_tpl)
-        return (outfit_v, (posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
+        return (outf_s, (posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
@@ -680,6 +678,7 @@ def outfit_fashion_collate(batch):
     --------
     """
     (
+        outf_s_out,
         posi_mask,
         posi_idxs_out,
         posi_imgs_out,
@@ -688,11 +687,12 @@ def outfit_fashion_collate(batch):
         nega_idxs_out,
         nega_imgs_out,
         nega_s_out,
-    ) = ([], [], [], [], [], [], [], [])
+    ) = ([], [], [], [], [], [], [], [], [])
 
     for i, sample in enumerate(batch):
-        (posi_idxs, posi_imgs, posi_s), (nega_idxs, nega_imgs, nega_s) = sample
-
+        outf_s, (posi_idxs, posi_imgs, posi_s), (nega_idxs, nega_imgs, nega_s) = sample
+        outf_s_out.extend(torch.from_numpy(outf_s).float())
+        
         posi_mask.extend([i] * len(posi_idxs))
         posi_idxs_out.extend(posi_idxs)
         posi_imgs_out.extend(posi_imgs)
@@ -705,6 +705,7 @@ def outfit_fashion_collate(batch):
 
     if len(posi_imgs) != 0 and len(posi_s) != 0:
         return (
+            torch.stack(outf_s_out, 0),
             torch.Tensor(posi_mask).to(torch.long),
             torch.Tensor(posi_idxs_out).to(torch.long),
             torch.stack(posi_imgs_out, 0),
@@ -716,6 +717,7 @@ def outfit_fashion_collate(batch):
         )
     elif len(posi_imgs) != 0:
         return (
+            torch.stack(outf_s_out, 0),
             torch.Tensor(posi_mask).to(torch.long),
             torch.Tensor(posi_idxs_out).to(torch.long),
             torch.stack(posi_imgs_out, 0),
@@ -725,6 +727,7 @@ def outfit_fashion_collate(batch):
         )
     else:
         return (
+            torch.stack(outf_s_out, 0),
             torch.Tensor(posi_mask).to(torch.long),
             torch.Tensor(posi_idxs_out).to(torch.long),
             torch.stack(posi_s_out, 0),
