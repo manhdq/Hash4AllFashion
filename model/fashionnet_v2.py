@@ -106,6 +106,10 @@ class FashionNet(nn.Module):
                         for cate_name in cate_selection
                     }
                 )
+
+        # Outfit semantic encoder block
+        self.encoder_o = M.TxtEncoder(param.outfit_semantic_dim, param)
+
         # Classification block
         ##TODO: Simplify this later
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection]
@@ -129,9 +133,10 @@ class FashionNet(nn.Module):
             # Use learnable scale
             self.core = M.LearnableScale(1)
         elif self.param.hash_types == utils.param.WEIGHTED_HASH_BOTH:
-            # two weighted hashing for both user-item and item-item
+            # two weighted hashing for both item-item and outfit semantic-item
             self.core = nn.ModuleList(
-                [M.CoreMat(param.dim), M.CoreMat(param.dim)]
+                [M.CoreMat(param.dim, param.pairwise_weight),
+                 M.CoreMat(param.dim, param.outfit_semantic_weight)]
             )
         else:
             # Single weighed hashing for user-item or item-item, current only use for item
@@ -207,27 +212,34 @@ class FashionNet(nn.Module):
             else:
                 self.encoder_t.set_scale(value)
 
-    def scores(self, ilatents, mask, scale=10.0):
+    def scores(self, olatent, ilatents, mask, scale=10.0):
         scores = []
         mask_idxs = torch.unique(mask).tolist()
 
         for idx in mask_idxs:
             # Get all feature vectors of a batch
+            sub_olatent = olatent[idx]
             sub_ilatents = ilatents[mask == idx]
             size = len(sub_ilatents)
             indx, indy = np.triu_indices(size, k=1)
+
             # comb x D
             ##TODO: Rename
-            x = sub_ilatents[indx] * sub_ilatents[indy]
+            pairwise = sub_ilatents[indx] * sub_ilatents[indy]
+            semwise = sub_ilatents * sub_olatent
+
             # Get score
             if self.param.hash_types == utils.param.WEIGHTED_HASH_I:
-                score_i = self.core(x).mean()
+                score_i = self.core(pairwise).mean()
+            elif self.param.hash_types == utils.param.WEIGHTED_HASH_BOTH:
+                score_i = self.core[0](pairwise).mean()
+                score_o = self.core[1](semwise).mean()                
             else:
-                ##TODO:
+                ## TODO: Add user score
                 raise
 
             ##TODO: Code for user score
-            score = score_i * (scale * 2.0)
+            score = (score_i + score_o) * (scale * 2.0)
             scores.append(score)
         # Stack the scores, shape N x 1
         scores = torch.stack(scores, dim=0).view(-1, 1)
@@ -254,6 +266,8 @@ class FashionNet(nn.Module):
     ##TODO: Modify for not `shared weight` option, add user for very later
     def _pairwise_output(
         self,
+        lco,
+        bco,
         posi_mask,
         posi_idxs,
         pos_feat,
@@ -265,13 +279,14 @@ class FashionNet(nn.Module):
         lcpi = self.latent_code(pos_feat, posi_idxs, encoder)
         lcni = self.latent_code(neg_feat, nega_idxs, encoder)
         # Score with relaxed features
-        pscore = self.scores(lcpi, posi_mask)  # list(): [0.33, 0.22], ...
-        nscore = self.scores(lcni, nega_mask)
+        pscore = self.scores(lco, lcpi, posi_mask)  # list(): [0.33, 0.22], ...
+        nscore = self.scores(lco, lcni, nega_mask)
+
         # Score with binary codes
         bcpi = self.sign(lcpi)
         bcni = self.sign(lcni)
-        bpscore = self.scores(bcpi, posi_mask)
-        bnscore = self.scores(bcni, nega_mask)
+        bpscore = self.scores(bco, bcpi, posi_mask)
+        bnscore = self.scores(bco, bcni, nega_mask)
 
         # latents = torch.stack(lcpi + lcni, dim=1)
         # latents = latents.view(-1, self.param.dim)
@@ -281,6 +296,8 @@ class FashionNet(nn.Module):
     def visual_output(self, *inputs):
         if self.param.use_semantic:
             (
+                lco,
+                bco,
                 posi_mask,
                 posi_idxs,
                 posi_imgs,
@@ -292,6 +309,8 @@ class FashionNet(nn.Module):
             ) = inputs
         else:
             (
+                lco,
+                bco,
                 posi_mask,
                 posi_idxs,
                 posi_imgs,
@@ -307,6 +326,8 @@ class FashionNet(nn.Module):
         feats = torch.cat([pos_feat, neg_feat], dim=0)
 
         scores, latents = self._pairwise_output(
+            lco,
+            bco,
             posi_mask,
             posi_idxs,
             pos_feat,
@@ -349,16 +370,25 @@ class FashionNet(nn.Module):
             self.encoder_t,
         )
         return scores, latents
+    
+    def outfit_semantic_output(self, outf_feat):
+        lco = self.encoder_o(outf_feat)
+        bco = self.sign(lco)
+        return lco, bco
 
     def forward(self, *inputs):
         """Forward according to setting."""
+        outf_s = inputs[0]
+        outf_feats = self.outfit_semantic_output(outf_s)
+        inputs = outf_feats + inputs[1:]
+
         # Pair-wise output
         ##TODO: Continue with this func code
         if self.param.use_semantic and self.param.use_visual:
-            posi_idxs, nega_idxs = inputs[1], inputs[5]
+            posi_idxs, nega_idxs = inputs[3], inputs[7]
         else:
-            posi_idxs, nega_idxs = inputs[1], inputs[4]
-
+            posi_idxs, nega_idxs = inputs[3], inputs[6]
+            
         idxs = torch.cat([posi_idxs, nega_idxs])
 
         loss = dict()
@@ -433,4 +463,8 @@ class FashionNet(nn.Module):
         Each sub-module should has its own same methods.
         """
         for model in self.children():
-            model.init_weights()
+            if isinstance(model, nn.ModuleList):
+                for m in model:
+                    m.init_weights()
+            else:
+                model.init_weights()
