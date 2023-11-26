@@ -50,6 +50,7 @@ def get_net(config, logger):
         map_location = {"cuda:{}".format(i): "cpu" for i in range(num_devices)}
         logger.info(f"Loading pre-trained model from {config.load_trained}")
         state_dict = torch.load(config.load_trained, map_location=map_location)
+        
         # when new user problem from pre-trained model
         if config.cold_start:
             # TODO: fit with new arch
