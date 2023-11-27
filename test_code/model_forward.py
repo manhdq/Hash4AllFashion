@@ -59,10 +59,37 @@ inputs[0].shape
 
 # %% [markdown]
 # ### Load model
+load_trained = "/home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net"
 config.load_trained = None
 net = train.get_net(config, logger)
 
+# %% [markdown]
+# ### try copying param from pretrained
+state_dict = net.state_dict()
+for name, param in state_dict.items():
+    print(name, state_dict[name].shape)
+
 # %%
+pretrained_state_dict = torch.load(load_trained)
+
+# %%
+for name, param in pretrained_state_dict.items():
+    # print(name, pretrained_state_dict[name].shape)
+    if name in state_dict.keys():
+        print(name)
+        param = param.data
+        print((state_dict[name] == param).all())
+
+# %%
+for name, param in pretrained_state_dict.items():
+    # print(name, pretrained_state_dict[name].shape)
+    if name in state_dict.keys():
+        print(name)
+        param = param.data
+        state_dict[name].copy_(param)
+
+# %% [markdown]
+# ### try forward through the model
 inputs = to_device(inputs, "cuda")
 out = net(*inputs)
 

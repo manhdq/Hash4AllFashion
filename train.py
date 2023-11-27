@@ -32,6 +32,15 @@ def get_logger(env, config):
     return logger
 
 
+def load_pretrained(state_dict, pretrained_state_dict):
+    # state_dict = net.state_dict()
+
+    for name, param in pretrained_state_dict.items():
+        if name in state_dict.keys():
+            param = param.data
+            state_dict[name].copy_(param)
+
+
 def get_net(config, logger):
     """
     Get network.
@@ -42,14 +51,21 @@ def get_net(config, logger):
     logger.info(net_param)
     # Dimension of latent codes
     net = FashionNet(net_param, logger, config.train_data_param.cate_selection)
+    state_dict = net.state_dict()
     # Load model from pre-trained file
     if config.load_trained:
         # Load weights from pre-trained model
         num_devices = torch.cuda.device_count()
         map_location = {"cuda:{}".format(i): "cpu" for i in range(num_devices)}
         logger.info(f"Loading pre-trained model from {config.load_trained}")
-        state_dict = torch.load(config.load_trained, map_location=map_location)
+        pretrained_state_dict = torch.load(config.load_trained, map_location=map_location)
         
+        # print("Before load pretrained...")
+        # for name, param in pretrained_state_dict.items():
+        #     if name in state_dict.keys():
+        #         param = param.data
+        #         print((state_dict[name] == param).all())
+                
         # when new user problem from pre-trained model
         if config.cold_start:
             # TODO: fit with new arch
@@ -57,15 +73,25 @@ def get_net(config, logger):
             logger.info("Reset the user embedding")
             # TODO: use more decent way to load pre-trained model for new user
             weight = "user_embedding.encoder.weight"
-            state_dict[weight] = torch.zeros(
+            pretrained_state_dict[weight] = torch.zeros(
                 net_param.dim, net_param.num_users
             )
-            net.load_state_dict(state_dict)
+            net.load_state_dict(pretrained_state_dict)
             ##TODO:
             net.user_embedding.init_weights()
         else:
             # load pre-trained model
-            net.load_state_dict(state_dict)
+            # net.load_state_dict(pretrained_state_dict)
+            print(f"Load pretrained from {config.load_trained}")
+            load_pretrained(state_dict, pretrained_state_dict)
+
+            # print("After load pretrained...")
+            # state_dict = net.state_dict()
+            # for name, param in pretrained_state_dict.items():
+            #     if name in state_dict.keys():
+            #         param = param.data
+            #         print((state_dict[name] == param).all())
+
     elif config.resume:  # resume training
         logger.info(f"Training resume from {config.resume}")
     else:

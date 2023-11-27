@@ -75,6 +75,6 @@ solver_param:
     scheduler_param:
       { cooldown: 10, factor: 0.5, patience: 10, threshold: 0.05 }
 
-# load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
+load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
 log_file: logs/train/fashion_hash_net_t3_outfitFashion_outfitSemantic.log
 log_level: DEBUG
