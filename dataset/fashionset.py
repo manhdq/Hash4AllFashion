@@ -287,11 +287,11 @@ class FashionDataset(Dataset):
             cate_selection = list(self.df.columns)
         else:
             cate_selection = cate_selection + [
-                "compatible",
+                "outfit_id", "compatible"
             ]
-
+            
         ##TODO: Simplify this later, Should we register this args?
-        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
+        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-2]]
         self.cate_idxs_to_tensor_idxs = {
             cate_idx: tensor_idx
             for cate_idx, tensor_idx in zip(
@@ -305,7 +305,6 @@ class FashionDataset(Dataset):
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
         )
-        self.outfit_ids = self.df["outfit_id"].tolist()
 
         self.df_drop = self.df.reset_index(drop=True).drop(
             ["outfit_id", "compatible"], axis=1
@@ -340,20 +339,22 @@ class FashionDataset(Dataset):
         )
         self.logger.info("")
 
-        self.posi_df_ori = (
-            self.df[self.df.compatible == 1]
+        self.posi_df = self.df[self.df.compatible == 1]
+        self.outfit_ids = self.posi_df["outfit_id"].tolist()
+        
+        self.posi_df = (
+            # self.df[self.df.compatible == 1]
+            self.posi_df
             .reset_index(drop=True)
             .drop(["outfit_id", "compatible"], axis=1)
         )
-        self.nega_df_ori = (
+        self.nega_df = (
             self.df[self.df.compatible == 0]
             .reset_index(drop=True)
             .drop(["outfit_id", "compatible"], axis=1)
         )
 
-        assert len(self.posi_df_ori) + len(self.nega_df_ori) == len(self.df)
-
-        self.posi_df = self.posi_df_ori.copy()
+        assert len(self.posi_df) + len(self.nega_df) == len(self.df)
 
         if param.use_semantic:
             ##TODO: Code this later
@@ -376,9 +377,7 @@ class FashionDataset(Dataset):
         # probability for hard negative samples
         self.hard_ratio = 0.8
         # the ratio between negative outfits and positive outfits
-        self.ratio = self.ratio_fix = len(self.nega_df_ori) / len(
-            self.posi_df_ori
-        )
+        self.ratio = self.ratio_fix = len(self.nega_df) / len(self.posi_df)
         self.set_data_mode(param.data_mode)
         self.set_nega_mode(param.nega_mode)
 
@@ -489,8 +488,8 @@ class FashionDataset(Dataset):
 
     def get_new_data_with_new_cate_selection(self, df, cate_selection):
         df = df.copy()
-        # df = df[cate_selection]
-        df_count = (df[cate_selection].to_numpy()[..., :-1] != "-1").astype(int).sum(axis=-1)
+        df = df[cate_selection]
+        df_count = (df.to_numpy()[..., :-2] != "-1").astype(int).sum(axis=-1) # 2 last columns are outfit_id, compatible
         return df[df_count > 1]
 
     def get_pair_list(self, num_pairwise_list, df):
