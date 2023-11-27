@@ -19,7 +19,7 @@ from utils.param import FashionExtractParam
 from utils.logger import Logger, config_log
 from dataset.fashionset import FashionExtractionDataset
 from dataset.transforms import get_img_trans
-from model import FashionNet
+from model.fashionnet import FashionNet
 
 
 def get_logger(env, config):

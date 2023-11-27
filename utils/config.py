@@ -1,31 +1,27 @@
 """Configuration file."""
-NumCate = 11
+NumCate = 7
 CateName = [
-    "all-body",
-    "bottom",
+#    "full-body",
     "top",
+    "bottom",
     "outerwear",
     "bag",
-    "shoe",
-    "accessory",
-    "scarf",
-    "hat",
-    "sunglass",
-    "jewellery",
+    "footwear",
+#    "accessory",
 ]
+# CateIdx = {
+#     "full-body": 0,
+#     "bottom": 1,
+#     "top": 2,
+#     "outerwear": 3,
+#     "bag": 4,
+#     "footwear": 5,
+#     "accessory": 6,
+# }
 CateIdx = {
-    "all-body": 0,
-    "bottom": 1,
-    "top": 2,
-    "outerwear": 3,
-    "bag": 4,
-    "shoe": 5,
-    "accessory": 6,
-    "scarf": 7,
-    "hat": 8,
-    "sunglass": 9,
-    "jewellery": 10,
+    CateName[i]: i for i in range(len(CateName))
 }
+print(CateIdx)
 
 NumPhase = 3
 Phase = ["train", "val", "test"]
