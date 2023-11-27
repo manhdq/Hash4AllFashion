@@ -14,7 +14,7 @@ import utils
 from utils.param import FashionTrainParam
 from utils.logger import Logger, config_log
 # from dataset.fashionset import FashionLoader
-from dataset.fashionset_v2 import FashionLoader
+from dataset.fashionset import FashionLoader
 from model import FashionNet
 from solver import FashionNetSolver
 
