@@ -9,7 +9,7 @@ data_param:
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
-  cate_selection: ["top", "bottom", "bag", "outerwear", "accessory", "full-body", "footwear"]
+  cate_selection: ["top", "bottom", "bag", "outerwear", "footwear"] # all: ["top", "bottom", "bag", "outerwear", "accessory", "full-body", "footwear"]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
 
@@ -47,11 +47,11 @@ solver_param:
   gpus: [0]
   ##TODO: using tensorboard
   tracking_method: "tensorboard"
-  tracking_log_dir: "./logs/fashion_hash_net_t3_allFashion_noSemantic"
+  tracking_log_dir: "./logs/fashion_hash_net_t3_allFashion_outfitSemantic"
   ##TODO: Delete this visdom option
   visdom_env: fashion_hash_net
-  visdom_title: fashion_hash_net_t3_allFashion_noSemantic
-  checkpoints: ./checkpoints/fashion_hash_net_t3_allFashion_noSemantic
+  visdom_title: fashion_hash_net_t3_allFashion_outfitSemantic
+  checkpoints: ./checkpoints/fashion_hash_net_t3_allFashion_outfitSemantic
   optim_param:
     name: SGD
     # lr: [5, 0.001, 0.005, 0.005, 0.01] # learning rate for each group
@@ -76,5 +76,5 @@ solver_param:
       { cooldown: 10, factor: 0.5, patience: 10, threshold: 0.05 }
 
 # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
-log_file: logs/train/fashion_hash_net_t3_allFashion_noSemantic.log
+log_file: logs/train/fashion_hash_net_t3_outfitFashion_outfitSemantic.log
 log_level: DEBUG
