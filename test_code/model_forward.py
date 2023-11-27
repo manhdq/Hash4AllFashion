@@ -8,11 +8,11 @@ import torch
 from utils import to_device
 from utils.param import FashionTrainParam
 from utils.logger import Logger, config_log
-from dataset.fashionset_v2 import FashionDataset, get_dataloader
+from dataset import fashionset
 from dataset.transforms import get_img_trans
 import train
 
-importlib.reload(train)
+importlib.reload(fashionset)
 
 import matplotlib.pyplot as plt
 
@@ -33,11 +33,14 @@ logger.info(f"Fashion param : {config}")
 param = config.train_data_param
 cate_selection = param.cate_selection
 
-# # %%
-# transforms = get_img_trans(param.phase, param.image_size)
-# dataset = FashionDataset(
-#     param, transforms, cate_selection, logger
-# )
+# %%
+transforms = get_img_trans(param.phase, param.image_size)
+dataset = fashionset.FashionDataset(
+    param, transforms, cate_selection, logger
+)
+
+# %%
+dataset.posi_df.head()
 
 # # %%
 # image = dataset.datum.load_image("10269_9708_31264127289.jpg")
@@ -45,7 +48,7 @@ cate_selection = param.cate_selection
 # plt.imshow(image)
 
 # %%
-dataloader = get_dataloader(param, logger)
+dataloader = fashionset.get_dataloader(param, logger)
 
 # %%
 inputs = next(iter(dataloader))
