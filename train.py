@@ -37,7 +37,7 @@ def load_pretrained(state_dict, pretrained_state_dict):
 
     for name, param in pretrained_state_dict.items():
         if name in state_dict.keys() and "classifier" not in name:
-            print(name)
+            # print(name)
             param = param.data
             state_dict[name].copy_(param)
 
