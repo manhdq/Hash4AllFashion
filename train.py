@@ -36,7 +36,8 @@ def load_pretrained(state_dict, pretrained_state_dict):
     # state_dict = net.state_dict()
 
     for name, param in pretrained_state_dict.items():
-        if name in state_dict.keys():
+        if name in state_dict.keys() and "classifier" not in name:
+            print(name)
             param = param.data
             state_dict[name].copy_(param)
 
@@ -82,7 +83,6 @@ def get_net(config, logger):
         else:
             # load pre-trained model
             # net.load_state_dict(pretrained_state_dict)
-            print(f"Load pretrained from {config.load_trained}")
             load_pretrained(state_dict, pretrained_state_dict)
 
             # print("After load pretrained...")
