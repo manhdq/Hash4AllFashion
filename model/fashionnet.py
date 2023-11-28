@@ -30,7 +30,7 @@ class RankMetric(threading.Thread):
         self.num_users = num_users
         self._scores = [
             [[] for _ in range(self.num_users)] for _ in range(4)
-        ]  ##TODO: What is 4?
+        ]  # [num_scores, num_users]
 
     def reset(self):
         self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]
@@ -40,13 +40,11 @@ class RankMetric(threading.Thread):
 
     def process(self, data):
         with threading.Lock():
-            scores = data
-            # Assume user_id is 0
-            ##TODO:
-            u = 0
-            for n, score in enumerate(scores):
-                for s in score:
-                    self._scores[n][u].append(s)
+            scores = data # scores: (pscore, nscore, bpscore, bnscore)
+            for u in range(self.num_users):
+                for n, score in enumerate(scores):
+                    for s in score:
+                        self._scores[n][u].append(s)  # [N, U, B]
 
     def run(self):
         print(threading.currentThread().getName(), "RankMetric")
@@ -57,7 +55,7 @@ class RankMetric(threading.Thread):
             self.process(data)
 
     def rank(self):
-        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])
+        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])  # [U, B]
         binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
         ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
         binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
@@ -76,13 +74,19 @@ class FashionNet(nn.Module):
         self.logger = logger
         self.scale = 1.0
         self.shared_weight = param.shared_weight_network
+
         # Feature extractor
-        if self.param.use_visual:
+        self.features = None
+        if self.param.use_visual and param.backbone is not None:
             self.features = NAMED_MODEL[param.backbone]()
+            print(param.backbone)
+
         # Single encoder or multi-encoders, hashing codes
         if param.shared_weight_network:
             if self.param.use_visual:
-                feat_dim = self.features.dim
+                feat_dim = 512
+                if self.features is not None:
+                    feat_dim = self.features.dim
                 self.encoder_v = M.ImgEncoder(feat_dim, param)
             if self.param.use_semantic:
                 # feat_dim = 2400
@@ -320,20 +324,21 @@ class FashionNet(nn.Module):
             ) = inputs
 
         # Extract visual features
-        pos_feat = self.features(posi_imgs)
-        neg_feat = self.features(nega_imgs)
+        if self.features is not None:
+            posi_imgs = self.features(posi_imgs)
+            nega_imgs = self.features(nega_imgs)
 
-        feats = torch.cat([pos_feat, neg_feat], dim=0)
+        feats = torch.cat([posi_imgs, nega_imgs], dim=0)
 
         scores, latents = self._pairwise_output(
             lco,
             bco,
             posi_mask,
             posi_idxs,
-            pos_feat,
+            posi_imgs,
             nega_mask,
             nega_idxs,
-            neg_feat,
+            nega_imgs,
             self.encoder_v,
         )
         return scores, latents, feats

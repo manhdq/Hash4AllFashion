@@ -114,4 +114,7 @@ net.num_groups
 net.classifier_v
 
 # %%
-# net.load_state_dict(
+tensorl = [torch.randn(1, 512) for _ in range(4)]
+torch.stack(tensorl, dim=0).shape
+
+# %%

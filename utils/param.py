@@ -123,6 +123,7 @@ class DataParam(_Param):
         outfit_desc=None,
         use_semantic=False,
         use_visual=True,
+        visual_encoding=None,
         image_root=None,  # image root if it's saved in another place
         saliency_image=False,  # whether to use saliency image
         image_size=291,
@@ -132,6 +133,7 @@ class DataParam(_Param):
         shuffle=None,
         fsl=None,
         cate_selection=None,
+        transforms=True,
         num_pairwise=None,
         using_max_num_pairwise=True,
     )
@@ -210,6 +212,9 @@ class DataParam(_Param):
         return os.path.join(self.data_root, "sentence_vector/semantic1.pkl")
 
     @property
+    def visual_embedding(self):
+        return os.path.join(self.data_root, f"{self.visual_encoding}.pkl")
+    
     def image_list_fn(self):
         ##TODO: Delete this
         return None
@@ -259,7 +264,7 @@ class NetParam(_Param):
         binary01=False,
         triplet=False,
         scale_tanh=True,
-        backbone="alexnet",
+        backbone=None,
         share_user=False,
         without_binary=False,
         zero_uterm=False,

@@ -62,6 +62,7 @@ class Datum(object):
         use_semantic=False,
         semantic=None,
         use_visual=False,
+        visual_embedding=None,
         image_dir="",
         lmdb_env=None,
         transforms=None,
@@ -72,6 +73,7 @@ class Datum(object):
         self.use_semantic = use_semantic
         self.semantic = semantic
         self.use_visual = use_visual
+        self.visual_embedding = visual_embedding
         self.image_dir = image_dir
         self.lmdb_env = lmdb_env
         self.transforms = transforms
@@ -85,14 +87,17 @@ class Datum(object):
         img: The image of idx name in image directory, type of PIL.Image.
         """
         img_name = f"{id_name}"
-        if self.lmdb_env:
+
+        if self.visual_embedding is not None:
+            img = self.visual_embedding[img_name]
+        elif self.lmdb_env:
             # Read with lmdb format
             with self.lmdb_env.begin(write=False) as txn:
                 imgbuf = txn.get(img_name.encode())
 
             # if imgbuf is None:
             #     ic(img_name)
-                
+
             # convert it to numpy
             image = np.frombuffer(imgbuf, dtype=np.uint8)  
             # decode image
@@ -108,6 +113,7 @@ class Datum(object):
             path = os.path.join(self.image_dir, img_name)
             img = cv2.imread(path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
         return img
 
     def load_semantics(self, id_name):
@@ -139,6 +145,8 @@ class Datum(object):
                 img = self.load_image(id_name)
                 if self.transforms:
                     img = self.transforms(image=img)["image"]
+                else:
+                    img = torch.from_numpy(img)
             images.append(img)
         return images
 
@@ -183,7 +191,7 @@ class FashionExtractionDataset(Dataset):
             cate_selection = list(self.df.columns)
         else:
             cate_selection = cate_selection + [
-                "compatible",
+                "outfit_id", "compatible",
             ]
 
         ##TODO: Simplify this later
@@ -368,6 +376,7 @@ class FashionDataset(Dataset):
             use_semantic=param.use_semantic,
             semantic=semantic,
             use_visual=param.use_visual,
+            visual_embedding=load_semantic_data(param.visual_embedding),
             image_dir=param.image_dir,
             lmdb_env=lmdb_env,
             transforms=transforms,
@@ -600,7 +609,11 @@ class FashionLoader(object):
         self.logger.info(
             f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), number of workers ({utils.colour(param.num_workers)})"
         )
-        transforms = get_img_trans(param.phase, param.image_size)
+
+        transforms = None
+        if param.transforms:
+            transforms = get_img_trans(param.phase, param.image_size)
+
         self.dataset = FashionDataset(
             param,
             transforms,
@@ -719,10 +732,10 @@ def outfit_fashion_collate(batch):
             torch.stack(outf_s_out, 0),
             torch.Tensor(posi_mask).to(torch.long),
             torch.Tensor(posi_idxs_out).to(torch.long),
-            torch.stack(posi_imgs_out, 0),
+            torch.stack(posi_imgs_out, 0).squeeze(),
             torch.Tensor(nega_mask).to(torch.long),
             torch.Tensor(nega_idxs_out).to(torch.long),
-            torch.stack(nega_imgs_out, 0),
+            torch.stack(nega_imgs_out, 0).squeeze(),
         )
     else:
         return (
