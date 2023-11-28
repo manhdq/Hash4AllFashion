@@ -1,23 +1,23 @@
 """Configuration file."""
 NumCate = 5
 
-# CateName = [
-#     "full-body",
-#     "top",
-#     "bottom",
-#     "outerwear",
-#     "bag",
-#     "footwear",
-#     "accessory",
-# ]
-
 CateName = [
+    "full-body",
     "top",
     "bottom",
     "outerwear",
     "bag",
     "footwear",
+    "accessory",
 ]
+
+# CateName = [
+#     "top",
+#     "bottom",
+#     "outerwear",
+#     "bag",
+#     "footwear",
+# ]
 
 CateIdx = {
     CateName[i]: i for i in range(len(CateName))
