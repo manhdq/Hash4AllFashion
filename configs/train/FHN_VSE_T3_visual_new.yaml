@@ -9,7 +9,8 @@ data_param:
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
-  cate_selection: ["top", "bottom", "bag", "outerwear", "footwear"] # all: ["top", "bottom", "bag", "outerwear", "accessory", "full-body", "footwear"]
+  # cate_selection: ["top", "bottom", "bag", "outerwear", "footwear"]
+  cate_selection: ["top", "bottom", "bag", "outerwear", "accessory", "full-body", "footwear"]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
 
