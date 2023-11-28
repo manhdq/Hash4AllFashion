@@ -213,7 +213,7 @@ class DataParam(_Param):
 
     @property
     def visual_embedding(self):
-        return os.path.join(self.data_root, f"{self.visual_encoding}.pkl")
+        return self.visual_encoding
     
     def image_list_fn(self):
         ##TODO: Delete this
