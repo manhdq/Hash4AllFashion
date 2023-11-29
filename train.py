@@ -13,9 +13,12 @@ import yaml
 import utils
 from utils.param import FashionTrainParam
 from utils.logger import Logger, config_log
+import utils.config as cfg
 from dataset.fashionset import FashionLoader
 from model import FashionNet
 from solver import FashionNetSolver
+
+from icecream import ic
 
 
 def get_logger(env, config):
@@ -33,8 +36,6 @@ def get_logger(env, config):
 
 
 def load_pretrained(state_dict, pretrained_state_dict):
-    # state_dict = net.state_dict()
-
     for name, param in pretrained_state_dict.items():
         if name in state_dict.keys() and "classifier" not in name:
             # print(name)
@@ -51,15 +52,17 @@ def get_net(config, logger):
     logger.info(f"Initializing {utils.colour(config.net_param.name)}")
     logger.info(net_param)
     # Dimension of latent codes
-    net = FashionNet(net_param, logger, config.train_data_param.cate_selection)
+    net = FashionNet(net_param, logger, cfg.SelectCate)
     state_dict = net.state_dict()
+    load_trained = net_param.load_trained
+
     # Load model from pre-trained file
-    if config.load_trained:
+    if load_trained:
         # Load weights from pre-trained model
         num_devices = torch.cuda.device_count()
         map_location = {"cuda:{}".format(i): "cpu" for i in range(num_devices)}
-        logger.info(f"Loading pre-trained model from {config.load_trained}")
-        pretrained_state_dict = torch.load(config.load_trained, map_location=map_location)
+        logger.info(f"Loading pre-trained model from {load_trained}")
+        pretrained_state_dict = torch.load(load_trained, map_location=map_location)
         
         # print("Before load pretrained...")
         # for name, param in pretrained_state_dict.items():
