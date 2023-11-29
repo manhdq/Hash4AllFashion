@@ -1,7 +1,7 @@
 """Configuration file."""
-NumCate = 5
+NumCate = 7
 
-CateName = [
+AllCate = [
     "full-body",
     "top",
     "bottom",
@@ -11,16 +11,16 @@ CateName = [
     "accessory",
 ]
 
-# CateName = [
-#     "top",
-#     "bottom",
-#     "outerwear",
-#     "bag",
-#     "footwear",
-# ]
+SelectCate = [
+    "top",
+    "bottom",
+    "outerwear",
+    "bag",
+    "footwear",
+]
 
 CateIdx = {
-    CateName[i]: i for i in range(len(CateName))
+    SelectCate[i]: i for i in range(len(SelectCate))
 }
 
 NumPhase = 3
