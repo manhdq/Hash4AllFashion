@@ -120,10 +120,10 @@ class DataParam(_Param):
         nega_mode="RandomOnline",  # mode for negative outfits
         data_root="data/polyvore",  # data root
         list_fmt="image_list_{}",
-        outfit_desc=None,
+        use_outfit_semantic=False,
+        use_visual_embedding=False,
         use_semantic=False,
         use_visual=True,
-        visual_encoding=None,
         image_root=None,  # image root if it's saved in another place
         saliency_image=False,  # whether to use saliency image
         image_size=291,
@@ -132,7 +132,6 @@ class DataParam(_Param):
         num_workers=8,  # number of workers for dataloader
         shuffle=None,
         fsl=None,
-        cate_selection=None,
         transforms=True,
         num_pairwise=None,
         using_max_num_pairwise=True,
@@ -157,28 +156,8 @@ class DataParam(_Param):
             self.data_set += "_fsl"
         self.image_root = self.image_root or self.data_root
 
-        self.cate_map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.cate_name = [
-            "all-body",
-            "bottom",
-            "top",
-            "outerwear",
-            "bag",
-            "shoe",
-            "accessory",
-            "scarf",
-            "hat",
-            "sunglass",
-            "jewellery",
-        ]
-        self.id2cat = {
-            cat_id: cat_name
-            for cat_id, cat_name in zip(self.cate_map, self.cate_name)
-        }
-        self.cat2id = {
-            cat_name: cat_id
-            for cat_id, cat_name in zip(self.cate_map, self.cate_name)
-        }
+        self.cat2id = cfg.CateIdx
+        self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
 
         if self.shuffle is None:
             self.shuffle = self.shuffle or (self.phase == "train")
@@ -205,7 +184,7 @@ class DataParam(_Param):
 
     @property
     def outfit_semantic(self):
-        return os.path.join(self.data_root, f"{self.outfit_desc}.pkl")
+        return os.path.join(self.data_root, "outfit_semantic.pkl")
 
     @property
     def semantic_fn(self):
@@ -213,7 +192,7 @@ class DataParam(_Param):
 
     @property
     def visual_embedding(self):
-        return self.visual_encoding
+        return os.path.join(self.data_root, "visual_embedding.pkl")
     
     def image_list_fn(self):
         ##TODO: Delete this
@@ -260,6 +239,7 @@ class NetParam(_Param):
         num_users=630,
         dim=128,
         outfit_semantic_dim=512,
+        visual_embedding_dim=512,        
         single=False,
         binary01=False,
         triplet=False,
@@ -271,40 +251,24 @@ class NetParam(_Param):
         zero_iterm=False,
         use_semantic=False,
         use_visual=False,
+        use_outfit_semantic=False,
+        use_visual_embedding=False,        
         hash_types=0,
         margin=None,
         debug=False,
         shared_weight_network=False,
         pairwise_weight=1.0,
-        outfit_semantic_weight=1.0
+        outfit_semantic_weight=1.0,
+        load_trained=None, # pretrained weight
     )
 
     def setup(self):
         if self.use_semantic and self.use_visual:
             self.margin = self.margin or 0.1
 
-        self.cate_map = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.cate_name = [
-            "all-body",
-            "bottom",
-            "top",
-            "outerwear",
-            "bag",
-            "shoe",
-            "accessory",
-            "scarf",
-            "hat",
-            "sunglass",
-            "jewellery",
-        ]
-        self.id2cat = {
-            cat_id: cat_name
-            for cat_id, cat_name in zip(self.cate_map, self.cate_name)
-        }
-        self.cat2id = {
-            cat_name: cat_id
-            for cat_id, cat_name in zip(self.cate_map, self.cate_name)
-        }
+        self.cat2id = cfg.CateIdx
+        self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
+
 
 
 class OptimParam(_Param):
@@ -428,7 +392,8 @@ class FashionTrainParam(_Param):
         test_data_param=None,
         net_param=None,
         solver_param=None,
-        load_trained=None,  # load pre-trained model
+        use_outfit_semantic=False,
+        use_visual_embedding=False,
         log_file=None,  # log file
         log_level=None,  # log level
         result_file=None,  # file to save metric
