@@ -165,11 +165,11 @@ class BasicSolver(object):
         self.last_epoch = epoch
         return result
 
-    def step_batch(self, inputs):
+    def step_batch(self, **inputs):
         """Compute one batch."""
         if self.parallel:
             return data_parallel(self.net, inputs, self.param.gpus)
-        return self.net(*inputs)
+        return self.net(**inputs)
 
     def train_one_epoch(self, epoch):
         """Run one epoch for training net."""
@@ -188,9 +188,9 @@ class BasicSolver(object):
         self.net.rank_metric.reset()
         for idx, inputs in enumerate(loader):
             inputv = utils.to_device(inputs, self.device)
-            batch_size = len(torch.unique(inputv[0]))
+            batch_size = len(torch.unique(inputv["imgs"][0]))
             data_time = time() - lastest_time
-            loss_, accuracy_ = self.step_batch(inputv)
+            loss_, accuracy_ = self.step_batch(**inputv)
             loss = self.gather_loss(loss_, backward=True)
             accuracy = self.gather_accuracy(accuracy_)
             batch_time = time() - lastest_time
