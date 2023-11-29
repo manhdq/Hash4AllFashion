@@ -10,6 +10,7 @@ import tqdm
 from scipy.special import factorial
 from PIL import Image
 import cv2
+from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -68,7 +69,7 @@ class Datum(object):
         transforms=None,
     ):
         self.cate_dict = cfg.CateIdx
-        self.cate_name = cfg.CateName
+        self.cate_name = cfg.SelectCate
 
         self.use_semantic = use_semantic
         self.semantic = semantic
@@ -167,13 +168,14 @@ class Datum(object):
         Returns:
            list of item images and list of corresponding semantic vectors
         """
-        if self.use_semantic and self.use_visual:
-            return self.visual_data(tpl), self.semantic_data(tpl)
-        if self.use_visual:
-            return self.visual_data(tpl), []
+        tpl_data = defaultdict(list)
+
         if self.use_semantic:
-            return [], self.semantic_data(tpl)
-        return tpl
+            tpl_data["semantic"].extend(self.semantic_data(tpl))
+        if self.use_visual:
+            tpl_data["visual"].extend(self.visual_data(tpl)),
+
+        return tpl_data
 
 
 ##TODO: Merge with FashionDataset
@@ -221,12 +223,17 @@ class FashionExtractionDataset(Dataset):
         else:
             semantic = None
 
+        if param.use_visual_embedding:
+            visual_embedding = load_semantic_data(param.visual_embedding)
+        else:
+            visual_embedding = None            
+
         ##TODO: Careful with lmdb
         lmdb_env = open_lmdb(param.lmdb_dir) if param.use_lmdb else None
         self.datum = Datum(
             use_semantic=param.use_semantic,
             semantic=semantic,
-            use_visual=param.use_visual,
+            use_visual=visual_embedding,
             image_dir=param.image_dir,
             lmdb_env=lmdb_env,
             transforms=transforms,
@@ -266,7 +273,10 @@ class FashionDataset(Dataset):
         self.logger = logger
 
         self.df = pd.read_csv(param.data_csv)
-        self.outfit_semantic = load_semantic_data(param.outfit_semantic)
+        if param.use_outfit_semantic:
+            self.outfit_semantic = load_semantic_data(param.outfit_semantic)
+        else:
+            self.outfit_semantic = None
         
         num_pairwise_list = param.num_pairwise
 
@@ -370,13 +380,19 @@ class FashionDataset(Dataset):
         else:
             semantic = None
 
+        if param.use_visual_embedding:
+            ##TODO: Code this later
+            visual_embedding = load_semantic_data(param.visual_embedding)
+        else:
+            visual_embedding = None            
+
         ##TODO: Careful with lmdb
         lmdb_env = open_lmdb(param.lmdb_dir) if param.use_lmdb else None
         self.datum = Datum(
             use_semantic=param.use_semantic,
             semantic=semantic,
             use_visual=param.use_visual,
-            visual_embedding=load_semantic_data(param.visual_embedding),
+            visual_embedding=visual_embedding,
             image_dir=param.image_dir,
             lmdb_env=lmdb_env,
             transforms=transforms,
@@ -546,16 +562,27 @@ class FashionDataset(Dataset):
         assert posi_oid == nega_oid
 
         # Get semantic embedding of outfits
-        outf_s = self.outfit_semantic[posi_oid]
+        if self.outfit_semantic is not None:
+            outf_s = [torch.from_numpy(self.outfit_semantic[posi_oid])]
+        else:
+            outf_s = []
 
         ## Mapping to tensor idxs for classification training
         posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))
         nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
 
         ##TODO: Dynamic options for visual and semantic selections
-        posi_v, posi_s = self.datum.get(posi_tpl)
-        nega_v, nega_s = self.datum.get(nega_tpl)
-        return (outf_s, (posi_idxs, posi_v, posi_s), (nega_idxs, nega_v, nega_s))
+        posi_tpl = self.datum.get(posi_tpl)
+        posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
+
+        nega_tpl = self.datum.get(nega_tpl)
+        nega_v, nega_s = nega_tpl["visual"], nega_tpl["semantic"]    
+
+        return {
+            "outf_s": outf_s,
+            "posi_tpl": (posi_idxs, posi_v, posi_s),
+            "nega_tpl": (nega_idxs, nega_v, nega_s)
+        }
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
@@ -588,9 +615,9 @@ class FashionLoader(object):
     def __init__(self, param, logger):
         self.logger = logger
 
-        self.cate_selection = param.cate_selection
+        self.cate_selection = cfg.SelectCate
         self.cate_not_selection = [
-            cate for cate in cfg.CateName if cate not in param.cate_selection
+            cate for cate in cfg.AllCate if cate not in cfg.SelectCate
         ]
 
         self.logger.info(
@@ -689,6 +716,8 @@ def outfit_fashion_collate(batch):
         ##TODO: Describe later
     --------
     """
+    batch_dict = defaultdict(None)
+
     (
         outf_s_out,
         posi_mask,
@@ -702,9 +731,12 @@ def outfit_fashion_collate(batch):
     ) = ([], [], [], [], [], [], [], [], [])
 
     for i, sample in enumerate(batch):
-        outf_s, (posi_idxs, posi_imgs, posi_s), (nega_idxs, nega_imgs, nega_s) = sample
-        outf_s_out.extend(torch.from_numpy(outf_s).float())
-        
+        outf_s = sample["outf_s"]
+        posi_idxs, posi_imgs, posi_s = sample["posi_tpl"]
+        nega_idxs, nega_imgs, nega_s = sample["nega_tpl"]
+
+        outf_s_out.extend(outf_s)
+            
         posi_mask.extend([i] * len(posi_idxs))
         posi_idxs_out.extend(posi_idxs)
         posi_imgs_out.extend(posi_imgs)
@@ -715,38 +747,28 @@ def outfit_fashion_collate(batch):
         nega_imgs_out.extend(nega_imgs)
         nega_s_out.extend(nega_s)
 
-    if len(posi_imgs) != 0 and len(posi_s) != 0:
-        return (
-            torch.stack(outf_s_out, 0),
-            torch.Tensor(posi_mask).to(torch.long),
-            torch.Tensor(posi_idxs_out).to(torch.long),
-            torch.stack(posi_imgs_out, 0),
-            torch.stack(posi_s_out, 0),
-            torch.Tensor(nega_mask).to(torch.long),
-            torch.Tensor(nega_idxs_out).to(torch.long),
-            torch.stack(nega_imgs_out, 0),
-            torch.stack(nega_s_out, 0),
-        )
-    elif len(posi_imgs) != 0:
-        return (
-            torch.stack(outf_s_out, 0),
-            torch.Tensor(posi_mask).to(torch.long),
-            torch.Tensor(posi_idxs_out).to(torch.long),
+    batch_dict["masks"] = (
+        torch.Tensor(posi_mask).to(torch.long),
+        torch.Tensor(posi_idxs_out).to(torch.long),
+        torch.Tensor(nega_mask).to(torch.long),
+        torch.Tensor(nega_idxs_out).to(torch.long),        
+    )
+
+    if len(outf_s) != 0:
+        batch_dict["outf_s"] = torch.stack(outf_s_out, 0).squeeze()
+
+    if len(posi_imgs) != 0:
+        batch_dict["imgs"] = (
             torch.stack(posi_imgs_out, 0).squeeze(),
-            torch.Tensor(nega_mask).to(torch.long),
-            torch.Tensor(nega_idxs_out).to(torch.long),
-            torch.stack(nega_imgs_out, 0).squeeze(),
+            torch.stack(nega_imgs_out, 0).squeeze(),            
         )
-    else:
-        return (
-            torch.stack(outf_s_out, 0),
-            torch.Tensor(posi_mask).to(torch.long),
-            torch.Tensor(posi_idxs_out).to(torch.long),
+    if len(posi_s) != 0:
+        batch_dict["s"] = (
             torch.stack(posi_s_out, 0),
-            torch.Tensor(nega_mask).to(torch.long),
-            torch.Tensor(nega_idxs_out).to(torch.long),
-            torch.stack(nega_s_out, 0),
-        )
+            torch.stack(nega_s_out, 0),            
+        )        
+
+    return batch_dict
 
 
 # --------------------------
