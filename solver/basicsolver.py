@@ -2,14 +2,12 @@ import os
 import numpy as np
 from time import time
 
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.nn.parallel import data_parallel
 from tensorboardX import SummaryWriter
 
 import utils
-from icecream import ic
 
 
 ##TODO: Modify this
@@ -41,7 +39,6 @@ class BasicSolver(object):
         optimizer = utils.get_named_class(torch.optim)[optim_param.name]
         groups = optim_param.groups
         num_child = self.net.num_groups()
-
         if len(groups) == 1:
             groups = groups * num_child
         else:
@@ -53,12 +50,9 @@ class BasicSolver(object):
                 len(groups), num_child
             )
         param_groups = []
-
         ##TODO: priority. Set lr param according to child name
         for name, child in self.net.named_children():
-            assert name in groups, "param name should be in " + str(
-                list(groups.keys())
-            )
+            assert name in groups
             param = groups[name]
             param_group = {"params": child.parameters()}
             param_group.update(param)
@@ -165,11 +159,11 @@ class BasicSolver(object):
         self.last_epoch = epoch
         return result
 
-    def step_batch(self, **inputs):
+    def step_batch(self, inputs):
         """Compute one batch."""
         if self.parallel:
             return data_parallel(self.net, inputs, self.param.gpus)
-        return self.net(**inputs)
+        return self.net(*inputs)
 
     def train_one_epoch(self, epoch):
         """Run one epoch for training net."""
@@ -178,7 +172,7 @@ class BasicSolver(object):
         phase = "train"
         # Generate negative outfit before each epoch
         loader = self.loader[phase].make_nega()
-        self.logger.info("\n".join(["\n", "=" * 10, " TRAINING", "=" * 10]))
+        self.logger.info("\n".join(["\n", "=" * 10, "TRAINING", "=" * 10]))
         msg = "Train - Epoch[{}](%d): [%d]/[{}]:".format(
             epoch, loader.num_batch
         )
@@ -188,9 +182,9 @@ class BasicSolver(object):
         self.net.rank_metric.reset()
         for idx, inputs in enumerate(loader):
             inputv = utils.to_device(inputs, self.device)
-            batch_size = len(torch.unique(inputv["imgs"][0]))
+            batch_size = len(torch.unique(inputv[0]))
             data_time = time() - lastest_time
-            loss_, accuracy_ = self.step_batch(**inputv)
+            loss_, accuracy_ = self.step_batch(inputv)
             loss = self.gather_loss(loss_, backward=True)
             accuracy = self.gather_accuracy(accuracy_)
             batch_time = time() - lastest_time
@@ -302,11 +296,8 @@ class BasicSolver(object):
         """Save the net's state."""
         ##TODO: Should we split state_dict to sub modules state dict for later easy load checkpoints??
         model_path = self.format_filepath(label, "net")
-        encoder_o_path = self.format_filepath(label, "enc_o")
         self.logger.info("Save net state to %s" % model_path)
-        self.logger.info("Save outfit semantic encoder state to %s" % encoder_o_path)        
         torch.save(self.net.state_dict(), model_path)
-        torch.save(self.net.encoder_o.state_dict(), encoder_o_path)        
 
     def format_filepath(self, label, suffix):
         """Return file-path."""

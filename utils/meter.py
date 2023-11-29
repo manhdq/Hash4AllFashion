@@ -3,7 +3,7 @@ from collections import deque
 
 import numpy as np
 
-from utils.math import smooth
+from .math import smooth
 
 # TODO: merge two meters into one class
 

@@ -2,7 +2,7 @@ import logging
 import warnings
 
 import numpy as np
-from utils.meter import MeterFactory
+from .meter import MeterFactory
 
 
 class Tracer(object):

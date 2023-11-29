@@ -93,6 +93,4 @@ def to_device(data, device):
         return tuple(to_device(v, device) for v in data)
     elif isinstance(data, torch.Tensor):
         return data.to(device)
-    elif isinstance(data, dict):
-        return {k: to_device(v, device) for k, v in data.items()}
     raise TypeError((error_msg.format(type(data))))

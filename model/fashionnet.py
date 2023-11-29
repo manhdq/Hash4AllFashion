@@ -6,9 +6,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import utils
-import utils.config as cfg
-from .losses import soft_margin_loss, contrastive_loss
+from .. import utils
+from ..utils import config as cfg
+from .losses import soft_margin_loss
 from . import backbones as B
 from . import basemodel as M
 
@@ -30,7 +30,7 @@ class RankMetric(threading.Thread):
         self.num_users = num_users
         self._scores = [
             [[] for _ in range(self.num_users)] for _ in range(4)
-        ]  # [num_scores, num_users]
+        ]  ##TODO: What is 4?
 
     def reset(self):
         self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]
@@ -40,11 +40,13 @@ class RankMetric(threading.Thread):
 
     def process(self, data):
         with threading.Lock():
-            scores = data # scores: (pscore, nscore, bpscore, bnscore)
-            for u in range(self.num_users):
-                for n, score in enumerate(scores):
-                    for s in score:
-                        self._scores[n][u].append(s)  # [N, U, B]
+            scores = data
+            # Assume user_id is 0
+            ##TODO:
+            u = 0
+            for n, score in enumerate(scores):
+                for s in score:
+                    self._scores[n][u].append(s)
 
     def run(self):
         print(threading.currentThread().getName(), "RankMetric")
@@ -55,7 +57,7 @@ class RankMetric(threading.Thread):
             self.process(data)
 
     def rank(self):
-        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])  # [U, B]
+        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])
         binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
         ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
         binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
@@ -67,11 +69,10 @@ class RankMetric(threading.Thread):
 class FashionNet(nn.Module):
     """Base class for fashion net."""
 
-    def __init__(self, param, logger, cate_selection):
+    def __init__(self, param, cate_selection):
         """See NetParam for details."""
         super().__init__()
         self.param = param
-        self.logger = logger
         self.scale = 1.0
         self.shared_weight = param.shared_weight_network
 
@@ -83,7 +84,7 @@ class FashionNet(nn.Module):
         # Single encoder or multi-encoders, hashing codes
         if param.shared_weight_network:
             if self.param.use_visual:
-                feat_dim = param.visual_embedding_dim
+                feat_dim = 512
                 if self.features is not None:
                     feat_dim = self.features.dim
                 self.encoder_v = M.ImgEncoder(feat_dim, param)
@@ -111,8 +112,7 @@ class FashionNet(nn.Module):
                 )
 
         # Outfit semantic encoder block
-        if self.param.use_outfit_semantic:
-            self.encoder_o = M.TxtEncoder(param.outfit_semantic_dim, param)
+        self.encoder_o = M.TxtEncoder(param.outfit_semantic_dim, param)
 
         # Classification block
         ##TODO: Simplify this later
@@ -201,7 +201,6 @@ class FashionNet(nn.Module):
         if not self.param.scale_tanh:
             return
         self.scale = value
-        self.logger.info(f"Set the scale to {value:.3f}")
         # self.user_embedding.set_scale()  ##TODO:
         if self.param.use_visual:
             if not self.shared_weight:
@@ -270,17 +269,18 @@ class FashionNet(nn.Module):
     ##TODO: Modify for not `shared weight` option, add user for very later
     def _pairwise_output(
         self,
-        posi_feat,
-        nega_feat,
+        lco,
+        bco,
+        posi_mask,
+        posi_idxs,
+        pos_feat,
+        nega_mask,
+        nega_idxs,
+        neg_feat,
         encoder,
-        **inputs
     ):
-        lco, bco = inputs["outf_s"]
-        posi_mask, posi_idxs, nega_mask, nega_idxs = inputs["masks"]
-        
-        lcpi = self.latent_code(posi_feat, posi_idxs, encoder)
-        lcni = self.latent_code(nega_feat, nega_idxs, encoder)
-
+        lcpi = self.latent_code(pos_feat, posi_idxs, encoder)
+        lcni = self.latent_code(neg_feat, nega_idxs, encoder)
         # Score with relaxed features
         pscore = self.scores(lco, lcpi, posi_mask)  # list(): [0.33, 0.22], ...
         nscore = self.scores(lco, lcni, nega_mask)
@@ -296,38 +296,84 @@ class FashionNet(nn.Module):
 
         return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
 
-    def visual_output(self, **inputs):
-        posi_imgs, nega_imgs = inputs["imgs"]        
+    def visual_output(self, *inputs):
+        if self.param.use_semantic:
+            (
+                lco,
+                bco,
+                posi_mask,
+                posi_idxs,
+                posi_imgs,
+                _,
+                nega_mask,
+                nega_idxs,
+                nega_imgs,
+                _,
+            ) = inputs
+        else:
+            (
+                lco,
+                bco,
+                posi_mask,
+                posi_idxs,
+                posi_imgs,
+                nega_mask,
+                nega_idxs,
+                nega_imgs,
+            ) = inputs
 
         # Extract visual features
         if self.features is not None:
-            posi_feat = self.features(posi_imgs)
-            nega_feat = self.features(nega_imgs)
-        else:
-            posi_feat = posi_imgs
-            nega_feat = posi_feat
+            posi_imgs = self.features(posi_imgs)
+            nega_imgs = self.features(nega_imgs)
 
-        feats = torch.cat([posi_feat, nega_feat], dim=0)
+        feats = torch.cat([posi_imgs, nega_imgs], dim=0)
 
         scores, latents = self._pairwise_output(
-            posi_feat,
-            nega_feat,
+            lco,
+            bco,
+            posi_mask,
+            posi_idxs,
+            posi_imgs,
+            nega_mask,
+            nega_idxs,
+            nega_imgs,
             self.encoder_v,
-            **inputs
         )
 
         return scores, latents, feats
 
-    def semantic_output(self, **inputs):
-        posi_feat, nega_feat = inputs["imgs"]
+    def semantic_output(self, *inputs):
+        if self.param.use_visual:
+            (
+                posi_mask,
+                posi_idxs,
+                _,
+                pos_feat,
+                nega_mask,
+                nega_idxs,
+                _,
+                neg_feat,
+            ) = inputs
+        else:
+            (
+                posi_mask,
+                posi_idxs,
+                pos_feat,
+                nega_mask,
+                nega_idxs,
+                neg_feat,
+            ) = inputs
 
         scores, latents = self._pairwise_output(
-            posi_feat,
-            nega_feat,
+            posi_mask,
+            posi_idxs,
+            pos_feat,
+            nega_mask,
+            nega_idxs,
+            neg_feat,
             self.encoder_t,
-            **inputs
         )
-
         return scores, latents
     
     def outfit_semantic_output(self, outf_feat):
@@ -335,33 +381,40 @@ class FashionNet(nn.Module):
         bco = self.sign(lco)
         return lco, bco
 
-    def forward(self, **inputs):
+    def forward(self, *inputs):
         """Forward according to setting."""
-        outf_s = inputs["outf_s"]
-        inputs["outf_s"] = self.outfit_semantic_output(outf_s)
-        del outf_s
+        outf_s = inputs[0]
+        outf_feats = self.outfit_semantic_output(outf_s)
+        inputs = outf_feats + inputs[1:]
 
         # Pair-wise output
-        posi_idxs = inputs["masks"][1]
-        nega_idxs = inputs["masks"][3]        
+        ##TODO: Continue with this func code
+        if self.param.use_semantic and self.param.use_visual:
+            posi_idxs, nega_idxs = inputs[3], inputs[7]
+        else:
+            posi_idxs, nega_idxs = inputs[3], inputs[6]
             
         idxs = torch.cat([posi_idxs, nega_idxs])
 
         loss = dict()
         accuracy = dict()
 
-        scores, latent_v, visual_feats, scores_s, laten_s = [None] * 5
-        if self.param.use_visual:        
-            scores, latent_v, visual_feats = self.visual_output(**inputs)
-        if self.param.use_semantic:
-            score_s, latent_s = self.semantic_output(**inputs)
-
-        # scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
-        # visual-semantic similarity
-        # vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
-        # loss.update(vse_loss=vse_loss)
-
-        visual_fc = self.classifier_v(visual_feats)
+        if self.param.use_semantic and self.param.use_visual:
+            scores, latent_v, visual_feats = self.visual_output(*inputs)
+            score_s, latent_s = self.semantic_output(*inputs)
+            # scores = [0.5 * (v + s) for v, s in zip(score_v, score_s)]
+            # visual-semantic similarity
+            # vse_loss = contrastive_loss(self.param.margin, latent_v, latent_s)
+            # loss.update(vse_loss=vse_loss)
+            visual_fc = self.classifier_v(visual_feats)
+            # visual_fc = self.classifier_s(semantic_feats)
+        elif self.param.use_visual:
+            scores, _, visual_feats = self.visual_output(*inputs)
+            visual_fc = self.classifier_v(visual_feats)
+        elif self.param.use_semantic:
+            scores, _ = self.semantic_output(*inputs)
+        else:
+            raise ValueError
 
         # print(scores) ##TODO:
         data = [s.tolist() for s in scores]
@@ -394,14 +447,21 @@ class FashionNet(nn.Module):
 
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):
-        feats = self.features(inputs)
+        if self.features is not None:
+            feats = self.features(inputs)
+        else:
+            feats = inputs
+            
         visual_fc = self.classifier_v(feats)
 
         lcis_v = self.encoder_v(feats)
-        lcis_s = self.encoder_t(feats)
-
         bcis_v = self.sign(lcis_v)
-        bcis_s = self.sign(lcis_s)
+
+        if self.param.use_semantic:
+            lcis_s = self.encoder_t(feats)
+            bcis_s = self.sign(lcis_s)
+        else:
+            lcis_s, bcis_s = None, None
 
         return lcis_v, lcis_s, bcis_v, bcis_s, visual_fc
 
