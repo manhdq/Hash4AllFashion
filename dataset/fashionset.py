@@ -8,7 +8,6 @@ import six
 import tqdm
 from scipy.special import factorial
 from PIL import Image
-from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -60,7 +59,6 @@ class Datum(object):
         use_semantic=False,
         semantic=None,
         use_visual=False,
-        visual_embedding=None,
         image_dir="",
         lmdb_env=None,
         transforms=None,
@@ -71,7 +69,6 @@ class Datum(object):
         self.use_semantic = use_semantic
         self.semantic = semantic
         self.use_visual = use_visual
-        self.visual_embedding = visual_embedding
         self.image_dir = image_dir
         self.lmdb_env = lmdb_env
         self.transforms = transforms
@@ -85,35 +82,19 @@ class Datum(object):
         img: The image of idx name in image directory, type of PIL.Image.
         """
         img_name = f"{id_name}.jpg"
-
-        if self.visual_embedding is not None:
-            img = self.visual_embedding[img_name]
-        elif self.lmdb_env:
+        if self.lmdb_env:
             # Read with lmdb format
             with self.lmdb_env.begin(write=False) as txn:
                 imgbuf = txn.get(img_name.encode())
-
-            # convert it to numpy
-            image = np.frombuffer(imgbuf, dtype=np.uint8)  
-            # decode image
-            image = cv2.imdecode(image, cv2.IMREAD_COLOR)  
-            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-            # buf = six.BytesIO()
-            # buf.write(imgbuf)
-            # buf.seek(0)
-            # img = Image.open(buf).convert("RGB")
+            buf = six.BytesIO()
+            buf.write(imgbuf)
+            buf.seek(0)
+            img = Image.open(buf).convert("RGB")
         else:
             # Read from raw image
             path = os.path.join(self.image_dir, img_name)
-            img = cv2.imread(path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-            # # Read from raw image
-            # path = os.path.join(self.image_dir, img_name)
-            # with open(path, "rb") as f:
-            #     img = Image.open(f).convert("RGB")
-
+            with open(path, "rb") as f:
+                img = Image.open(f).convert("RGB")
         return img
 
     def visual_data(self, indices):
@@ -130,31 +111,17 @@ class Datum(object):
             images.append(img)
         return images
 
-    def semantic_data(self, indices):
-        """Load semantic data of one outfit."""
-        vecs = []
-        for id_name in indices:
-            v = self.load_semantics(id_name)
-            vecs.append(v)
-        return vecs
-
     def get(self, tpl):
-        """Convert a tuple to torch.FloatTensor
-        
-        Args:
-           tpl: list of image ids
-        
-        Returns:
-           list of item images and list of corresponding semantic vectors
-        """
-        tpl_data = defaultdict(list)
-
-        if self.use_semantic:
-            tpl_data["semantic"].extend(self.semantic_data(tpl))
+        """Convert a tuple to torch.FloatTensor"""
+        if self.use_semantic and self.use_visual:
+            tpl_s = self.semantic_data(tpl)
+            tpl_v = self.visual_data(tpl)
+            return tpl_v, tpl_s
         if self.use_visual:
-            tpl_data["visual"].extend(self.visual_data(tpl)),
-
-        return tpl_data
+            return self.visual_data(tpl)
+        if self.use_semantic:
+            return self.semantic_data(tpl)
+        return tpl
 
 
 ##TODO: Merge with FashionDataset
