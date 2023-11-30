@@ -11,13 +11,15 @@ AllCate = [
     "accessory",
 ]
 
-SelectCate = [
-    "top",
-    "bottom",
-    "outerwear",
-    "bag",
-    "footwear",
-]
+# SelectCate = [
+#     "top",
+#     "bottom",
+#     "outerwear",
+#     "bag",
+#     "footwear",
+# ]
+
+SelectCate = AllCate
 
 CateIdx = {
     SelectCate[i]: i for i in range(len(SelectCate))

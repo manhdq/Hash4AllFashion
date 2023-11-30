@@ -4,7 +4,7 @@ from unittest import result
 import warnings
 from datetime import datetime
 
-import utils.config as cfg
+from . import config as cfg
 
 from icecream import ic
 
@@ -484,11 +484,11 @@ class FashionDeployParam(_Param):
         train_data_param=None,
         test_data_param=None,
         net_param=None,
-        load_trained=None,  # load pre-trained model
         gpus=None,  # gpus
+        transforms=True, # image transforms
+        hash_storage=None,
         score_type_selection=None,
         feature_type_selection=None,
-        transforms=None,
         num_recommends_per_choice=None,
         num_recommends_for_composition=None,
         get_composed_recommendation=None,
