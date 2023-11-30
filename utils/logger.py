@@ -31,3 +31,17 @@ class Logger:
 
     def info(self, info):
         print(info)
+
+
+def get_logger(env, config):
+    if env == "local":
+        ##TODO: Modify this logger name
+        logfile = config_log(
+            stream_level=config.log_level, log_file=config.log_file
+        )
+        logger = logging.getLogger("fashion32")
+        logger.info("Logging to file %s", logfile)
+    elif env == "colab":
+        logger = Logger(config)  # Normal logger
+        logger.info(f"Logging to file {logger.logfile}")
+    return logger
