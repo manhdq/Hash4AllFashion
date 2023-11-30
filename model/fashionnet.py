@@ -163,6 +163,22 @@ class FashionNet(nn.Module):
         if not self.rank_metric.is_alive():
             self.rank_metric.start()
 
+    def gather(self, results):
+        losses, accuracy = results
+        loss = 0.0
+        gathered_loss = {}
+        for name, value in losses.items():
+            weight = self.loss_weight[name]
+            value = value.mean()
+            # save the scale
+            gathered_loss[name] = value.item()
+            if weight:
+                loss += value * weight
+        # save overall loss
+        gathered_loss["loss"] = loss.item()
+        gathered_accuracy = {k: v.sum().item() / v.numel() for k, v in accuracy.items()}
+        return gathered_loss, gathered_accuracy
+
     def configure_trace(self):
         self.tracer = dict()
         self.tracer["loss"] = {
