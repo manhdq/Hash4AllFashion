@@ -41,7 +41,7 @@ net_param:
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/fhn_t3_osem_best_11_26.pt
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/11_28_23/fhn_t3_osem_pretrained_best_11_28.pt
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/fhn_t3_osem_pretrained_allCate_best_11_28.pt
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/11_29_23/fhn_osem_allCate_11_29_best.pt
@@ -49,8 +49,9 @@ net_param:
 gpus: [0]
 
 ## Deploy options
-# score_type_selection: "binary"
-score_type_selection: "latent"
+hash_storage: storages/hash_apparels_11_26.pkl
+score_type_selection: "binary"
+# score_type_selection: "latent"
 feature_type_selection: "visual"
 num_recommends_per_choice: 5
 num_recommends_for_composition: 3
