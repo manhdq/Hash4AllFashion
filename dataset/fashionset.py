@@ -8,6 +8,8 @@ import six
 import tqdm
 from scipy.special import factorial
 from PIL import Image
+import cv2
+from collections import defaultdict
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -15,6 +17,8 @@ from torch.utils.data import DataLoader, Dataset
 import utils
 import utils.config as cfg
 from .transforms import get_img_trans
+
+from icecream import ic
 
 
 def count_pairwise(count_array: np.ndarray, num_pairwise: int):
@@ -40,7 +44,6 @@ def open_lmdb(path):
         meminit=False,
     )
 
-
 def load_semantic_data(semantic_fn):
     """Load semantic data."""
     data_fn = os.path.join(semantic_fn)
@@ -59,6 +62,7 @@ class Datum(object):
         use_semantic=False,
         semantic=None,
         use_visual=False,
+        visual_embedding=None,
         image_dir="",
         lmdb_env=None,
         transforms=None,
@@ -69,6 +73,7 @@ class Datum(object):
         self.use_semantic = use_semantic
         self.semantic = semantic
         self.use_visual = use_visual
+        self.visual_embedding = visual_embedding
         self.image_dir = image_dir
         self.lmdb_env = lmdb_env
         self.transforms = transforms
@@ -81,47 +86,92 @@ class Datum(object):
         ------
         img: The image of idx name in image directory, type of PIL.Image.
         """
-        img_name = f"{id_name}.jpg"
-        if self.lmdb_env:
+        img_name = f"{id_name}"
+
+        if self.visual_embedding is not None:
+            img = self.visual_embedding[img_name]
+        elif self.lmdb_env:
             # Read with lmdb format
             with self.lmdb_env.begin(write=False) as txn:
                 imgbuf = txn.get(img_name.encode())
-            buf = six.BytesIO()
-            buf.write(imgbuf)
-            buf.seek(0)
-            img = Image.open(buf).convert("RGB")
+
+            # convert it to numpy
+            image = np.frombuffer(imgbuf, dtype=np.uint8)  
+            # decode image
+            image = cv2.imdecode(image, cv2.IMREAD_COLOR)  
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+            # buf = six.BytesIO()
+            # buf.write(imgbuf)
+            # buf.seek(0)
+            # img = Image.open(buf).convert("RGB")
         else:
             # Read from raw image
             path = os.path.join(self.image_dir, img_name)
-            with open(path, "rb") as f:
-                img = Image.open(f).convert("RGB")
+            img = cv2.imread(path)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            
         return img
+
+    def load_semantics(self, id_name):
+        """Load semantic embedding.
+
+        Return
+        ------
+        vec: the semantic vector of n-th item in c-the category,
+            type of torch.FloatTensor.
+        """
+        img_name = f"{id_name}.jpg"
+        vec = self.semantic[img_name]
+
+        return torch.from_numpy(vec.astype(np.float32))
 
     def visual_data(self, indices):
         """Load image data of the outfit."""
         images = []
         for id_name in indices:
-            if id_name == -1:
-                ##TODO: Dynamic this later if we use `-1` as an apparel
-                img = torch.zeros((3, 300, 300), dtype=torch.float32)
+            if id_name == "-1":
+                # why this array?
+                img = (
+                    np.ones((300, 300, 3), dtype=np.uint8) * 127
+                )  # Gray image
+                # img = Image.fromarray(img)
+                if self.transforms:
+                    img = self.transforms(image=img)["image"]
             else:
                 img = self.load_image(id_name)
                 if self.transforms:
-                    img = self.transforms(img)
+                    img = self.transforms(image=img)["image"]
+                else:
+                    img = torch.from_numpy(img)
             images.append(img)
         return images
 
+    def semantic_data(self, indices):
+        """Load semantic data of one outfit."""
+        vecs = []
+        for id_name in indices:
+            v = self.load_semantics(id_name)
+            vecs.append(v)
+        return vecs
+
     def get(self, tpl):
-        """Convert a tuple to torch.FloatTensor"""
-        if self.use_semantic and self.use_visual:
-            tpl_s = self.semantic_data(tpl)
-            tpl_v = self.visual_data(tpl)
-            return tpl_v, tpl_s
-        if self.use_visual:
-            return self.visual_data(tpl)
+        """Convert a tuple to torch.FloatTensor
+        
+        Args:
+           tpl: list of image ids
+        
+        Returns:
+           list of item images and list of corresponding semantic vectors
+        """
+        tpl_data = defaultdict(list)
+
         if self.use_semantic:
-            return self.semantic_data(tpl)
-        return tpl
+            tpl_data["semantic"].extend(self.semantic_data(tpl))
+        if self.use_visual:
+            tpl_data["visual"].extend(self.visual_data(tpl)),
+
+        return tpl_data
 
 
 ##TODO: Merge with FashionDataset
@@ -134,26 +184,30 @@ class FashionExtractionDataset(Dataset):
 
         self.df = pd.read_csv(self.param.data_csv)
 
-        # After processing
+        # After processing data
         if cate_selection == "all":
             cate_selection = list(self.df.columns)
         else:
             cate_selection = cate_selection + [
-                "compatible",
+                "outfit_id", "compatible",
             ]
 
         ##TODO: Simplify this later
-        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
-        self.cate_idxs_to_tensor_idxs = {
-            cate_idx: tensor_idx
-            for cate_idx, tensor_idx in zip(
-                self.cate_idxs, range(len(self.cate_idxs))
-            )
-        }
-        self.tensor_idxs_to_cate_idxs = {
-            v: k for k, v in self.cate_idxs_to_tensor_idxs.items()
-        }
+        # -1 because the last column define
+        # if the outift is compatible or not
+        # self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
 
+        # self.cate_idxs_to_tensor_idxs = {
+        #     cate_idx: tensor_idx
+        #     for cate_idx, tensor_idx in zip(
+        #         self.cate_idxs, range(len(self.cate_idxs))
+        #     )
+        # }
+
+        # self.tensor_idxs_to_cate_idxs = {
+        #     v: k for k, v in self.cate_idxs_to_tensor_idxs.items()
+        # }
+        
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
         )
@@ -161,31 +215,37 @@ class FashionExtractionDataset(Dataset):
         self.df = self.df.drop("compatible", axis=1)
 
         if param.use_semantic:
-            ##TODO: Code this later
             semantic = load_semantic_data(param.semantic_fn)
         else:
             semantic = None
+
+        if param.use_visual_embedding:
+            visual_embedding = load_semantic_data(param.visual_embedding)
+        else:
+            visual_embedding = None            
 
         ##TODO: Careful with lmdb
         lmdb_env = open_lmdb(param.lmdb_dir) if param.use_lmdb else None
         self.datum = Datum(
             use_semantic=param.use_semantic,
             semantic=semantic,
-            use_visual=param.use_visual,
+            use_visual=visual_embedding,
             image_dir=param.image_dir,
             lmdb_env=lmdb_env,
             transforms=transforms,
         )
 
     def get_new_data_with_new_cate_selection(self, df, cate_selection):
+        """Get only outfits with nonzero number of items"""
         df = df.copy()
         df = df[cate_selection]
-        df_count = (df.to_numpy()[..., :-1] != -1).astype(int).sum(axis=-1)
+        df_count = (df.to_numpy()[..., :-1] != "-1").astype(int).sum(axis=-1)
         return df[df_count > 1]
 
     def get_tuple(self, idx):
+        """Return item's cate ids and item ids of the outfit"""
         raw_tuple = self.df.iloc[idx]
-        outfit_tuple = raw_tuple[raw_tuple != -1]
+        outfit_tuple = raw_tuple[raw_tuple != "-1"]
         outfit_idxs = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
@@ -208,9 +268,17 @@ class FashionDataset(Dataset):
         self.param = param
         self.logger = logger
 
-        self.df = pd.read_csv(self.param.data_csv)
+        self.df = pd.read_csv(param.data_csv)
+        if param.use_outfit_semantic:
+            self.outfit_semantic = load_semantic_data(param.outfit_semantic)
+        else:
+            self.outfit_semantic = None
+        
         num_pairwise_list = param.num_pairwise
+
+        self.logger.info("")
         self.logger.info("Dataframe processing...")
+
         # Before processing
         num_row_before = len(self.df)
         pairwise_count_before_list = self.get_pair_list(
@@ -227,18 +295,17 @@ class FashionDataset(Dataset):
                 ]
             )
         )
-        self.logger.info("")
 
         # After processing
         if cate_selection == "all":
             cate_selection = list(self.df.columns)
         else:
             cate_selection = cate_selection + [
-                "compatible",
+                "outfit_id", "compatible"
             ]
-
+            
         ##TODO: Simplify this later, Should we register this args?
-        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-1]]
+        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-2]]
         self.cate_idxs_to_tensor_idxs = {
             cate_idx: tensor_idx
             for cate_idx, tensor_idx in zip(
@@ -252,6 +319,23 @@ class FashionDataset(Dataset):
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
         )
+
+        self.df_drop = self.df.reset_index(drop=True).drop(
+            ["outfit_id", "compatible"], axis=1
+        )
+
+        # Create item_list and remove -1 value
+        self.item_list = [
+            list(set(self.df_drop.iloc[:, i]))
+            for i in range(len(self.df_drop.columns))
+        ]
+
+        for idx, _ in enumerate(self.item_list):
+            try:
+                self.item_list[idx].remove("-1")
+            except Exception:
+                continue
+
         num_row_after = len(self.df)
         pairwise_count_after_list = self.get_pair_list(
             num_pairwise_list, self.df
@@ -269,20 +353,22 @@ class FashionDataset(Dataset):
         )
         self.logger.info("")
 
-        self.posi_df_ori = (
-            self.df[self.df.compatible == 1]
+        self.posi_df = self.df[self.df.compatible == 1]
+        self.outfit_ids = self.posi_df["outfit_id"].tolist()
+        
+        self.posi_df = (
+            # self.df[self.df.compatible == 1]
+            self.posi_df
             .reset_index(drop=True)
-            .drop("compatible", axis=1)
+            .drop(["outfit_id", "compatible"], axis=1)
         )
-        self.nega_df_ori = (
+        self.nega_df = (
             self.df[self.df.compatible == 0]
             .reset_index(drop=True)
-            .drop("compatible", axis=1)
+            .drop(["outfit_id", "compatible"], axis=1)
         )
 
-        assert len(self.posi_df_ori) + len(self.nega_df_ori) == len(self.df)
-
-        self.posi_df = self.posi_df_ori.copy()
+        assert len(self.posi_df) + len(self.nega_df) == len(self.df)
 
         if param.use_semantic:
             ##TODO: Code this later
@@ -290,12 +376,19 @@ class FashionDataset(Dataset):
         else:
             semantic = None
 
+        if param.use_visual_embedding:
+            ##TODO: Code this later
+            visual_embedding = load_semantic_data(param.visual_embedding)
+        else:
+            visual_embedding = None            
+
         ##TODO: Careful with lmdb
         lmdb_env = open_lmdb(param.lmdb_dir) if param.use_lmdb else None
         self.datum = Datum(
             use_semantic=param.use_semantic,
             semantic=semantic,
             use_visual=param.use_visual,
+            visual_embedding=visual_embedding,
             image_dir=param.image_dir,
             lmdb_env=lmdb_env,
             transforms=transforms,
@@ -305,9 +398,7 @@ class FashionDataset(Dataset):
         # probability for hard negative samples
         self.hard_ratio = 0.8
         # the ratio between negative outfits and positive outfits
-        self.ratio = self.ratio_fix = len(self.nega_df_ori) / len(
-            self.posi_df_ori
-        )
+        self.ratio = self.ratio_fix = len(self.nega_df) / len(self.posi_df)
         self.set_data_mode(param.data_mode)
         self.set_nega_mode(param.nega_mode)
 
@@ -323,8 +414,8 @@ class FashionDataset(Dataset):
         ], "Unknown negative mode."
         if self.param.data_mode == "PosiOnly":
             self.logger.warning(
-                f"Current data-mode is {utils.colour(self.param.data_mode, 'Red')}."
-                "The negative mode will be ignored!",
+                f"Current data-mode is {utils.colour(self.param.data_mode)}."
+                f"{utils.colour('The negative mode will be ignored!')}",
             )
         else:
             self.logger.info(f"Set negative mode to {utils.colour(mode)}")
@@ -336,17 +427,50 @@ class FashionDataset(Dataset):
     ):
         return self.nega_df_ori.sample(frac=1).reset_index(drop=True)
 
+    def _random_online(
+        self,
+    ):
+        row, col = self.posi_df.shape
+        df_nega = np.empty((row, col), dtype=object)        
+
+        # item_list is the list of all items of each cate
+        for i in range(col):
+            df_nega[:, i] = np.random.choice(self.item_list[i], row)
+
+        # df_drop is df after dropping 'compatible' column
+        df_nega = pd.DataFrame(df_nega, columns=self.df_drop.columns)
+        df_nega[self.posi_df == "-1"] = "-1"
+
+        # Check each row of nega_df if it matches the row of posi_df
+        for i, row in df_nega.iterrows():
+            # if current row of posi_df 
+            # match that of nega_df then
+            # keep randomizing row of nega_df
+            # TODO: what if current row of nega_df match other row of posi_df? 
+            # TODO: add description embedding of each outfit
+            while (self.posi_df.loc[i] == df_nega.loc[i]).all():
+                outfit_id = row.outfit_id
+                df_nega.loc[i] = [outfit_id] + list(
+                    np.random.choice(self.item_list[i], 1)
+                    for i in range(len(self.item_list))
+                )
+                df_nega.loc[i, self.posi_df.loc[i] == "-1"] = "-1"
+
+        return df_nega
+
     def make_nega(self, ratio=1):
         """Make negative outfits according to its mode and ratio."""
         self.logger.info(
-            "Make negative outfit for mode %s" % self.param.nega_mode
+            f"Make negative outfit for mode {utils.colour(self.param.nega_mode)}"
         )
         if self.param.nega_mode == "ShuffleDatabase":
             self.nega_df = self._shuffle_nega()
             self.logger.info("Shuffle negative database")
         elif self.param.nega_mode == "RandomOnline":
             ##TODO: Random the negative dataframe from positive one
-            raise
+            self.nega_df = self._random_online()
+            self.ratio = self.ratio_fix = len(self.nega_df) / len(self.posi_df)
+            self.logger.info("Random online database")
         else:
             raise  ##TODO:
         self.logger.info("Done making negative outfits!")
@@ -359,6 +483,7 @@ class FashionDataset(Dataset):
             "PosiOnly",
             "NegaOnly",
             "PairWise",
+            "PairWiseIncludeNull",
             "TripleWise",
         ], f"Unknown data mode: {mode}"
         self.logger.info(f"Set data mode to {utils.colour(mode)}")
@@ -388,13 +513,13 @@ class FashionDataset(Dataset):
     def get_new_data_with_new_cate_selection(self, df, cate_selection):
         df = df.copy()
         df = df[cate_selection]
-        df_count = (df.to_numpy()[..., :-1] != -1).astype(int).sum(axis=-1)
+        df_count = (df.to_numpy()[..., :-2] != "-1").astype(int).sum(axis=-1) # 2 last columns are outfit_id, compatible
         return df[df_count > 1]
 
     def get_pair_list(self, num_pairwise_list, df):
         # for i, row in df.iterrows()
         df_array = df.to_numpy()[..., :-1]  # Eliminate compatible
-        df_count = (df_array != -1).astype(int).sum(axis=-1)
+        df_count = (df_array != "-1").astype(int).sum(axis=-1)
 
         pairwise_count_list = []
         for num_pairwise in num_pairwise_list:
@@ -411,31 +536,52 @@ class FashionDataset(Dataset):
     #     outfit_idxs_out[outfit_tensor_idxs] = 1
     #     return outfit_idxs, raw_tuple.values.tolist()
 
-    def get_tuple(self, df, idx):
+    def get_tuple(self, df, idx, include_null=False):
+        """Return item's cate ids and item ids of the outfit"""
         raw_tuple = df.iloc[idx]
-        outfit_tuple = raw_tuple[raw_tuple != -1]
+        oid = self.outfit_ids[idx]
+
+        if include_null:
+            outfit_tuple = raw_tuple.copy()
+        else:
+            outfit_tuple = raw_tuple[raw_tuple != "-1"]
+
         outfit_idxs = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
-        return outfit_idxs, outfit_tuple.values.tolist()
+        return oid, outfit_idxs, outfit_tuple.values.tolist()
 
     def _PairWise(self, index):
         """Get a pair of outfits."""
-        ##TODO: Modify index for tuple selection for posi and nega (maybe shuffle the df each epoch)
-        posi_idxs, posi_tpl = self.get_tuple(
+        posi_oid, posi_idxs, posi_tpl = self.get_tuple(
             self.posi_df, int(index // self.ratio)
         )
-        nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
+        nega_oid, nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
 
-        posi_idxs = list(
-            map(self.cate_idxs_to_tensor_idxs.get, posi_idxs)
-        )  ## Mapping to tensor idxs for classification training
+        assert posi_oid == nega_oid
+
+        # Get semantic embedding of outfits
+        if self.outfit_semantic is not None:
+            outf_s = [torch.from_numpy(self.outfit_semantic[posi_oid])]
+        else:
+            outf_s = []
+
+        ## Mapping to tensor idxs for classification training
+        posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))
         nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
 
-        return (
-            (posi_idxs, self.datum.get(posi_tpl)),
-            (nega_idxs, self.datum.get(nega_tpl)),
-        )
+        ##TODO: Dynamic options for visual and semantic selections
+        posi_tpl = self.datum.get(posi_tpl)
+        posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
+
+        nega_tpl = self.datum.get(nega_tpl)
+        nega_v, nega_s = nega_tpl["visual"], nega_tpl["semantic"]    
+
+        return {
+            "outf_s": outf_s,
+            "posi_tpl": (posi_idxs, posi_v, posi_s),
+            "nega_tpl": (nega_idxs, nega_v, nega_s)
+        }
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
@@ -447,9 +593,9 @@ class FashionDataset(Dataset):
 
     def __len__(self):
         """Return the size of dataset."""
-        return dict(PairWise=int(self.ratio * self.num_posi))[
-            self.param.data_mode
-        ]
+        return dict(
+            PairWise=int(self.ratio * self.num_posi),
+        )[self.param.data_mode]
 
     @property
     def num_posi(self):
@@ -489,11 +635,19 @@ class FashionLoader(object):
         self.logger.info(
             f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), number of workers ({utils.colour(param.num_workers)})"
         )
-        transforms = get_img_trans(param.phase, param.image_size)
-        self.dataset = FashionDataset(
-            param, transforms, self.cate_selection.copy(), logger
-        )
 
+        transforms = None
+        if param.transforms:
+            transforms = get_img_trans(param.phase, param.image_size)
+
+        self.dataset = FashionDataset(
+            param,
+            transforms,
+            # self.cate_selection.copy(),
+            self.cate_selection,            
+            logger
+        )
+        
         self.loader = DataLoader(
             dataset=self.dataset,
             batch_size=param.batch_size,
@@ -561,41 +715,59 @@ def outfit_fashion_collate(batch):
         ##TODO: Describe later
     --------
     """
+    batch_dict = defaultdict(None)
+
     (
+        outf_s_out,
         posi_mask,
         posi_idxs_out,
         posi_imgs_out,
+        posi_s_out,
         nega_mask,
         nega_idxs_out,
         nega_imgs_out,
-    ) = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
+        nega_s_out,
+    ) = ([], [], [], [], [], [], [], [], [])
 
     for i, sample in enumerate(batch):
-        (posi_idxs, posi_imgs), (nega_idxs, nega_imgs) = sample
+        outf_s = sample["outf_s"]
+        posi_idxs, posi_imgs, posi_s = sample["posi_tpl"]
+        nega_idxs, nega_imgs, nega_s = sample["nega_tpl"]
 
+        outf_s_out.extend(outf_s)
+            
         posi_mask.extend([i] * len(posi_idxs))
         posi_idxs_out.extend(posi_idxs)
         posi_imgs_out.extend(posi_imgs)
+        posi_s_out.extend(posi_s)
 
         nega_mask.extend([i] * len(nega_idxs))
         nega_idxs_out.extend(nega_idxs)
         nega_imgs_out.extend(nega_imgs)
+        nega_s_out.extend(nega_s)
 
-    return (
+    batch_dict["masks"] = (
         torch.Tensor(posi_mask).to(torch.long),
         torch.Tensor(posi_idxs_out).to(torch.long),
-        torch.stack(posi_imgs_out, 0),
         torch.Tensor(nega_mask).to(torch.long),
-        torch.Tensor(nega_idxs_out).to(torch.long),
-        torch.stack(nega_imgs_out, 0),
+        torch.Tensor(nega_idxs_out).to(torch.long),        
     )
+
+    if len(outf_s) != 0:
+        batch_dict["outf_s"] = torch.stack(outf_s_out, 0).squeeze()
+
+    if len(posi_imgs) != 0:
+        batch_dict["imgs"] = (
+            torch.stack(posi_imgs_out, 0).squeeze(),
+            torch.stack(nega_imgs_out, 0).squeeze(),            
+        )
+    if len(posi_s) != 0:
+        batch_dict["s"] = (
+            torch.stack(posi_s_out, 0),
+            torch.stack(nega_s_out, 0),            
+        )        
+
+    return batch_dict
 
 
 # --------------------------
