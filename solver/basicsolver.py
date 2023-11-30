@@ -1,4 +1,5 @@
 import os
+import os.path as osp
 import numpy as np
 from time import time
 
@@ -34,6 +35,7 @@ class BasicSolver(object):
         self.parallel, self.device = utils.get_device(param.gpus)
         self.init_optimizer(param.optim_param)
         self.init_tracking_writer(param.tracking_method)
+        os.makedirs(osp.dirname(param.checkpoints), exist_ok=True)
 
     def init_optimizer(self, optim_param):
         """Init optimizer."""
@@ -187,10 +189,10 @@ class BasicSolver(object):
         tracer = utils.tracer.Tracer(win_size=0, logger=self.logger)
         self.net.rank_metric.reset()
         for idx, inputs in enumerate(loader):
-            inputv = utils.to_device(inputs, self.device)
-            batch_size = len(torch.unique(inputv["imgs"][0]))
+            inputs = utils.to_device(inputs, self.device)
+            batch_size = len(torch.unique(inputs["imgs"][0]))
             data_time = time() - lastest_time
-            loss_, accuracy_ = self.step_batch(**inputv)
+            loss_, accuracy_ = self.step_batch(**inputs)
             loss = self.gather_loss(loss_, backward=True)
             accuracy = self.gather_accuracy(accuracy_)
             batch_time = time() - lastest_time
@@ -235,11 +237,11 @@ class BasicSolver(object):
         test_iter = 0
         for idx, inputs in enumerate(loader):
             # Compute output and loss
-            inputv = utils.to_device(inputs, self.device)
-            batch_size = len(torch.unique(inputv[0]))
+            inputs = utils.to_device(inputs, self.device)
+            batch_size = len(torch.unique(inputs[0]))
             data_time = time() - lastest_time
             with torch.no_grad():
-                loss_, accuracy_ = self.step_batch(inputv)
+                loss_, accuracy_ = self.step_batch(inputs)
                 loss = self.gather_loss(loss_, backward=False)
                 accuracy = self.gather_accuracy(accuracy_)
             # Update time and history
@@ -302,11 +304,8 @@ class BasicSolver(object):
         """Save the net's state."""
         ##TODO: Should we split state_dict to sub modules state dict for later easy load checkpoints??
         model_path = self.format_filepath(label, "net")
-        encoder_o_path = self.format_filepath(label, "enc_o")
         self.logger.info("Save net state to %s" % model_path)
-        self.logger.info("Save outfit semantic encoder state to %s" % encoder_o_path)        
         torch.save(self.net.state_dict(), model_path)
-        torch.save(self.net.encoder_o.state_dict(), encoder_o_path)        
 
     def format_filepath(self, label, suffix):
         """Return file-path."""
