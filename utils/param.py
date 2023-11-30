@@ -475,3 +475,154 @@ class FashionExtractParam(_Param):
 
         if self.net_param:
             self.net_param = NetParam(**self.net_param)
+
+
+# TODO: Check FITBDataParam
+class FITBDataParam(_Param):
+    default = dict(
+        phase="test",
+        data_set="tuples_630",  # Polyvore-U dataset
+        data_root="data/polyvore",  # data root
+        list_fmt="image_list_{}",
+        use_semantic=False,
+        use_visual=True,
+        image_root=None,  # image root if it's saved in another place
+        saliency_image=False,  # whether to use saliency image
+        image_size=291,
+        use_lmdb=True,  # whether to use lmdb data
+        num_workers=8,  # number of workers for dataloader
+        num_cand=4,  # number of candidates, which equals to batch size
+    )
+    infer = [
+        "data_dir",
+        "image_list_fn",
+        "image_dir",
+        "posi_fn",
+        "fitb_fn",
+        "semantic_fn",
+    ]
+
+    def setup(self):
+        self.image_root = self.image_root or self.data_root
+        self.variable_length = self.data_set in _VAR_LENGTH_DATA
+        if self.variable_length:
+            # regard the variable-length outfits as four-category
+            self.cate_map = [0, 0, 1, 2]
+            self.cate_name = ["top", "top", "bottom", "shoe"]
+        else:
+            # the normal outfits
+            self.cate_map = [0, 1, 2]
+            self.cate_name = ["top", "bottom", "shoe"]
+        # tricky implementation for FITB by loading one task in one batch.
+        # no shuffle
+        self.shuffle = False
+        if not (self.use_semantic or self.use_visual):
+            warnings.warn("Neither semantic nor visual is selected! ", RuntimeWarning)
+
+    @property
+    def semantic_fn(self):
+        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")
+
+    @property
+    def fitb_fn(self):
+        fn = os.path.join(self.data_dir, "fill_in_blank_{}".format(self.phase))
+        return fn
+
+    @property
+    def image_dir(self):
+        if self.saliency_image:
+            folder = "saliency"
+        else:
+            folder = "291x291"
+        return os.path.join(self.image_root, "images", folder)
+
+    @property
+    def lmdb_dir(self):
+        return os.path.join(self.image_root, "images/lmdb")
+
+    @property
+    def data_dir(self):
+        return os.path.join(self.data_root, self.data_set)
+
+    @property
+    def image_list_fn(self):
+        return [
+            os.path.join(self.data_dir, self.list_fmt.format(p)) for p in cfg.CateName
+        ]
+
+    @property
+    def posi_fmt(self):
+        """Infer the file format for positive tuples"""
+        return "tuples_{}_posi"
+
+    @property
+    def posi_fn(self):
+        return os.path.join(self.data_dir, self.posi_fmt.format(self.phase))
+    
+            
+# TODO: Check FashionParam
+class FashionParam(_Param):
+    """_Param for fashion hash net."""
+
+    default = dict(
+        data_param=None,
+        train_data_param=None,
+        test_data_param=None,
+        fitb_data_param=None,
+        net_param=None,
+        solver_param=None,
+        load_trained=None,  # load pre-trained model
+        log_file=None,  # lof file
+        log_level=None,  # log level
+        result_file=None,  # file to save metric
+        result_dir=None,  # folder to save result images
+        feature_file=None,  # file for saving features
+        resume=None,  # resume training
+        cold_start=None,  # fine-tune model for new users
+        gpus=None,  # gpus
+    )
+
+    def setup(self):
+        # if set specific configuration fopr train/test
+        if not (self.train_data_param is None and self.test_data_param is None):
+            param = self.data_param or dict()
+            train_param = self.train_data_param or dict()
+            test_param = self.test_data_param or dict()
+            train_param.update(param)
+            test_param.update(param)
+            self.train_data_param = DataParam(**train_param)
+            self.test_data_param = DataParam(**test_param)
+            self.data_param = None
+        if self.data_param:
+            param = self.data_param
+            self.data_param = DataParam(**param)
+        if self.fitb_data_param:
+            param = self.fitb_data_param
+            self.fitb_data_param = FITBDataParam(**param)
+
+        if self.net_param:
+            self.net_param = NetParam(**self.net_param)
+        if self.solver_param:
+            self.solver_param = SolverParam(**self.solver_param)
+            self.gpus = self.solver_param.gpus
+
+    def add_timestamp(self, timestamp=None):
+        """Add timestamp to log file and solver."""
+        if timestamp is None:
+            timestamp = datetime.now().strftime("%m%d%H%M")
+        if self.log_file:
+            self.log_file = "{name}.{time}.log".format(
+                name=self.log_file, time=timestamp
+            )
+        if self.solver_param:
+            self.solver_param.add_timestamp(timestamp)
+
+
+__all__ = [
+    "show",
+    "FashionParam",
+    "NetParam",
+    "SolverParam",
+    "DataParam",
+    "FITBDataParam",
+]
