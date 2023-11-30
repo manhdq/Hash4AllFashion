@@ -4,7 +4,9 @@ from unittest import result
 import warnings
 from datetime import datetime
 
-from . import config as cfg
+import utils.config as cfg
+
+from icecream import ic
 
 NO_WEIGHTED_HASH = 0
 WEIGHTED_HASH_U = 1
@@ -118,7 +120,8 @@ class DataParam(_Param):
         nega_mode="RandomOnline",  # mode for negative outfits
         data_root="data/polyvore",  # data root
         list_fmt="image_list_{}",
-        outfit_desc=None,
+        use_outfit_semantic=False,
+        use_visual_embedding=False,
         use_semantic=False,
         use_visual=True,
         image_root=None,  # image root if it's saved in another place
@@ -129,7 +132,7 @@ class DataParam(_Param):
         num_workers=8,  # number of workers for dataloader
         shuffle=None,
         fsl=None,
-        transforms=False,
+        transforms=True,
         num_pairwise=None,
         using_max_num_pairwise=True,
     )
@@ -181,19 +184,22 @@ class DataParam(_Param):
 
     @property
     def outfit_semantic(self):
-        return os.path.join(self.data_root, f"{self.outfit_desc}.pkl")
-    
-    @property
-    def semantic_fn(self):
-        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")
+        return os.path.join(self.data_root, "outfit_semantic.pkl")
 
     @property
+    def semantic_fn(self):
+        return os.path.join(self.data_root, "sentence_vector/semantic1.pkl")
+
+    @property
+    def visual_embedding(self):
+        return os.path.join(self.data_root, "visual_embedding.pkl")
+    
     def image_list_fn(self):
         ##TODO: Delete this
         return None
         return [
             os.path.join(self.data_dir, self.list_fmt.format(p))
-            for p in cfg.SelectCate
+            for p in cfg.CateName
         ]
 
     @property
@@ -233,6 +239,7 @@ class NetParam(_Param):
         num_users=630,
         dim=128,
         outfit_semantic_dim=512,
+        visual_embedding_dim=512,        
         single=False,
         binary01=False,
         triplet=False,
@@ -244,12 +251,15 @@ class NetParam(_Param):
         zero_iterm=False,
         use_semantic=False,
         use_visual=False,
+        use_outfit_semantic=False,
+        use_visual_embedding=False,        
         hash_types=0,
         margin=None,
         debug=False,
         shared_weight_network=False,
         pairwise_weight=1.0,
-        outfit_semantic_weight=1.0
+        outfit_semantic_weight=1.0,
+        load_trained=None, # pretrained weight
     )
 
     def setup(self):
@@ -258,6 +268,7 @@ class NetParam(_Param):
 
         self.cat2id = cfg.CateIdx
         self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
+
 
 
 class OptimParam(_Param):
@@ -381,7 +392,8 @@ class FashionTrainParam(_Param):
         test_data_param=None,
         net_param=None,
         solver_param=None,
-        load_trained=None,  # load pre-trained model
+        use_outfit_semantic=False,
+        use_visual_embedding=False,
         log_file=None,  # log file
         log_level=None,  # log level
         result_file=None,  # file to save metric
@@ -441,46 +453,6 @@ class FashionExtractParam(_Param):
         log_level=None,  # log level
         feature_folder=None,  # folder to saving features
         gpus=None,  # gpus
-    )
-
-    def setup(self):
-        # If set specific configuration for training
-        if not (
-            self.train_data_param is None and self.test_data_param is None
-        ):
-            param = self.data_param or dict()
-            train_param = self.train_data_param or dict()
-            test_param = self.test_data_param or dict()
-            train_param.update(param)
-            test_param.update(param)
-            self.train_data_param = DataParam(**train_param)
-            self.test_data_param = DataParam(**test_param)
-            self.data_param = None
-
-        if self.data_param:
-            param = self.data_param
-            self.data_param = DataParam(**param)
-
-        if self.net_param:
-            self.net_param = NetParam(**self.net_param)
-
-
-class FashionDeployParam(_Param):
-    """_Param for Hash for All Fashion Feature Deployment."""
-
-    default = dict(
-        data_param=None,
-        train_data_param=None,
-        test_data_param=None,
-        net_param=None,
-        load_trained=None,  # load pre-trained model
-        gpus=None,  # gpus
-        score_type_selection=None,
-        feature_type_selection=None,
-        transforms=None,
-        num_recommends_per_choice=None,
-        num_recommends_for_composition=None,
-        get_composed_recommendation=None,
     )
 
     def setup(self):

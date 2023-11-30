@@ -1,12 +1,10 @@
 import math
-from icecream import ic
-import snoop
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..utils import config as cfg
+import utils.config as cfg
 
 
 def init_weights(m):
@@ -54,7 +52,7 @@ class LatentCode(nn.Module):
 
 class CrossAttention(nn.Module):
     def __init__(
-            self, n_heads, d_embed, d_cross, in_proj_bias=True, out_proj_bias=True
+        self, n_heads, d_embed, d_cross, in_proj_bias=True, out_proj_bias=True
     ):
         super().__init__()
         self.q_proj = nn.Linear(d_embed, d_embed, bias=in_proj_bias)
@@ -64,7 +62,6 @@ class CrossAttention(nn.Module):
         self.n_heads = n_heads
         self.d_head = d_embed // n_heads
 
-    @snoop
     def forward(self, x, y):
         input_shape = x.shape
         batch_size, sequence_length, d_embed = input_shape
@@ -232,16 +229,17 @@ class TxtClassifier(nn.Module):
 class CoreMat(nn.Module):
     """Weighted hamming similarity."""
 
-    def __init__(self, dim, weight=1.0):
+    def __init__(self, dim, weight):
         """Weights for this layer that is drawn from N(mu, std)."""
         super().__init__()
         self.dim = dim
+        self.w = weight
         self.weight = nn.Parameter(torch.Tensor(1, dim))
-        self.init_weights(weight)
+        self.init_weights()
 
-    def init_weights(self, weight):
+    def init_weights(self):
         """Initialize weights."""
-        self.weight.data.fill_(weight)
+        self.weight.data.fill_(self.w)
 
     def forward(self, x):
         """Forward."""

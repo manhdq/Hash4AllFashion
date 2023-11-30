@@ -1,15 +1,14 @@
 import threading
 import numpy as np
 from functools import partial
-from collections import defaultdict
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .. import utils
-from ..utils import config as cfg
-from .losses import soft_margin_loss
+import utils
+import utils.config as cfg
+from .losses import soft_margin_loss, contrastive_loss
 from . import backbones as B
 from . import basemodel as M
 
@@ -31,7 +30,7 @@ class RankMetric(threading.Thread):
         self.num_users = num_users
         self._scores = [
             [[] for _ in range(self.num_users)] for _ in range(4)
-        ]  ##TODO: What is 4?
+        ]  # [num_scores, num_users]
 
     def reset(self):
         self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]
@@ -56,7 +55,7 @@ class RankMetric(threading.Thread):
             self.process(data)
 
     def rank(self):
-        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])
+        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])  # [U, B]
         binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
         ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
         binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
@@ -68,10 +67,11 @@ class RankMetric(threading.Thread):
 class FashionNet(nn.Module):
     """Base class for fashion net."""
 
-    def __init__(self, param, cate_selection):
+    def __init__(self, param, logger, cate_selection):
         """See NetParam for details."""
         super().__init__()
         self.param = param
+        self.logger = logger
         self.scale = 1.0
         self.shared_weight = param.shared_weight_network
 
@@ -201,6 +201,7 @@ class FashionNet(nn.Module):
         if not self.param.scale_tanh:
             return
         self.scale = value
+        self.logger.info(f"Set the scale to {value:.3f}")
         # self.user_embedding.set_scale()  ##TODO:
         if self.param.use_visual:
             if not self.shared_weight:
