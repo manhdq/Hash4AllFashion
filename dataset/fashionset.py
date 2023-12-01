@@ -68,7 +68,7 @@ class Datum(object):
         transforms=None,
     ):
         self.cate_dict = cfg.CateIdx
-        self.cate_name = cfg.SelectCate
+        self.cate_name = cfg.CateName
 
         self.use_semantic = use_semantic
         self.semantic = semantic
@@ -131,9 +131,8 @@ class Datum(object):
         images = []
         for id_name in indices:
             if id_name == "-1":
-                # why this array?
                 img = (
-                    np.ones((300, 300, 3), dtype=np.uint8) * 127
+                    np.zeros((300, 300, 3), dtype=np.float32)
                 )  # Gray image
                 # img = Image.fromarray(img)
                 if self.transforms:
@@ -246,15 +245,15 @@ class FashionExtractionDataset(Dataset):
         """Return item's cate ids and item ids of the outfit"""
         raw_tuple = self.df.iloc[idx]
         outfit_tuple = raw_tuple[raw_tuple != "-1"]
-        outfit_idxs = [
+        outfit_cates = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
-        return outfit_idxs, outfit_tuple.values.tolist()
+        return outfit_cates, outfit_tuple.values.tolist()
 
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
-        idxs, tpl = self.get_tuple(index)
-        return idxs, tpl, self.datum.get(tpl)
+        cates, tpl = self.get_tuple(index)
+        return cates, tpl, self.datum.get(tpl)
 
     def __len__(self):
         """Return the size of dataset."""
@@ -308,9 +307,7 @@ class FashionDataset(Dataset):
         self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-2]]
         self.cate_idxs_to_tensor_idxs = {
             cate_idx: tensor_idx
-            for cate_idx, tensor_idx in zip(
-                self.cate_idxs, range(len(self.cate_idxs))
-            )
+            for tensor_idx, cate_idx in enumerate(self.cate_idxs)
         }
         self.tensor_idxs_to_cate_idxs = {
             v: k for k, v in self.cate_idxs_to_tensor_idxs.items()
@@ -528,7 +525,7 @@ class FashionDataset(Dataset):
     #     outfit_idxs_out = torch.zeros(len(df.columns))
     #     raw_tuple = df.iloc[idx]
     #     outfit_tuple = raw_tuple[raw_tuple != -1]
-    #     outfit_idxs = [cfg.CateIdx[col] for col in outfit_tuple.index.to_list()]
+    #     outfit_cates = [cfg.CateIdx[col] for col in outfit_tuple.index.to_list()]
     #     outfit_tensor_idxs = [self.cate_idxs_to_tensor_idxs[outfit_idx] for outfit_idx in outfit_idxs]
     #     outfit_idxs_out[outfit_tensor_idxs] = 1
     #     return outfit_idxs, raw_tuple.values.tolist()
@@ -543,17 +540,17 @@ class FashionDataset(Dataset):
         else:
             outfit_tuple = raw_tuple[raw_tuple != "-1"]
 
-        outfit_idxs = [
+        outfit_cates = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
-        return oid, outfit_idxs, outfit_tuple.values.tolist()
+        return oid, outfit_cates, outfit_tuple.values.tolist()
 
     def _PairWise(self, index):
         """Get a pair of outfits."""
-        posi_oid, posi_idxs, posi_tpl = self.get_tuple(
+        posi_oid, posi_cates, posi_tpl = self.get_tuple(
             self.posi_df, int(index // self.ratio)
         )
-        nega_oid, nega_idxs, nega_tpl = self.get_tuple(self.nega_df, index)
+        nega_oid, nega_cates, nega_tpl = self.get_tuple(self.nega_df, index)
 
         assert posi_oid == nega_oid
 
@@ -564,8 +561,8 @@ class FashionDataset(Dataset):
             outf_s = []
 
         ## Mapping to tensor idxs for classification training
-        posi_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, posi_idxs))
-        nega_idxs = list(map(self.cate_idxs_to_tensor_idxs.get, nega_idxs))
+        posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
+        nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
 
         ##TODO: Dynamic options for visual and semantic selections
         posi_tpl = self.datum.get(posi_tpl)
@@ -576,8 +573,8 @@ class FashionDataset(Dataset):
 
         return {
             "outf_s": outf_s,
-            "posi_tpl": (posi_idxs, posi_v, posi_s),
-            "nega_tpl": (nega_idxs, nega_v, nega_s)
+            "posi_tpl": (posi_cates, posi_v, posi_s),
+            "nega_tpl": (nega_cates, nega_v, nega_s)
         }
 
     def __getitem__(self, index):
@@ -611,9 +608,9 @@ class FashionLoader(object):
     def __init__(self, param, logger):
         self.logger = logger
 
-        self.cate_selection = cfg.SelectCate
+        self.cate_selection = param.cate_selection
         self.cate_not_selection = [
-            cate for cate in cfg.AllCate if cate not in cfg.SelectCate
+            cate for cate in self.cate_selection if cate not in cfg.CateName
         ]
 
         self.logger.info(
@@ -640,7 +637,6 @@ class FashionLoader(object):
         self.dataset = FashionDataset(
             param,
             transforms,
-            # self.cate_selection.copy(),
             self.cate_selection,            
             logger
         )
@@ -697,12 +693,12 @@ class FashionLoader(object):
 def outfit_fashion_collate(batch):
     """Custom collate function for dealing with batch of fashion dataset
     Each sample will has following output from dataset:
-        ((`posi_idxs`, `posi_imgs`), (`nega_idxs`, `nega_imgs`))
+        ((`posi_cates`, `posi_imgs`), (`nega_cates`, `nega_imgs`))
         ----------
         - Examples
-            `posi_idxs`: [i1, i2, i3]
+            `posi_cates`: [i1, i2, i3]
             `posi_imgs`: [(3, 300, 300), (3, 300, 300), (3, 300, 300)]
-            `nega_idxs`: [i1, i2]
+            `nega_cates`: [i1, i2]
             `nega_imgs`: [(3, 300, 300), (3, 300, 300)]
         ----------
         The number of apparels in each list is different between different sample
@@ -717,51 +713,51 @@ def outfit_fashion_collate(batch):
     (
         outf_s_out,
         posi_mask,
-        posi_idxs_out,
+        posi_cates_out,
         posi_imgs_out,
         posi_s_out,
         nega_mask,
-        nega_idxs_out,
+        nega_cates_out,
         nega_imgs_out,
         nega_s_out,
     ) = ([], [], [], [], [], [], [], [], [])
 
     for i, sample in enumerate(batch):
         outf_s = sample["outf_s"]
-        posi_idxs, posi_imgs, posi_s = sample["posi_tpl"]
-        nega_idxs, nega_imgs, nega_s = sample["nega_tpl"]
+        posi_cates, posi_imgs, posi_s = sample["posi_tpl"]
+        nega_cates, nega_imgs, nega_s = sample["nega_tpl"]
 
         outf_s_out.extend(outf_s)
             
-        posi_mask.extend([i] * len(posi_idxs))
-        posi_idxs_out.extend(posi_idxs)
+        posi_mask.extend([i] * len(posi_cates))
+        posi_cates_out.extend(posi_cates)
         posi_imgs_out.extend(posi_imgs)
         posi_s_out.extend(posi_s)
 
-        nega_mask.extend([i] * len(nega_idxs))
-        nega_idxs_out.extend(nega_idxs)
+        nega_mask.extend([i] * len(nega_cates))
+        nega_cates_out.extend(nega_cates)
         nega_imgs_out.extend(nega_imgs)
         nega_s_out.extend(nega_s)
 
-    batch_dict["masks"] = (
+    batch_dict["idxs"] = (
         torch.Tensor(posi_mask).to(torch.long),
-        torch.Tensor(posi_idxs_out).to(torch.long),
+        torch.Tensor(posi_cates_out).to(torch.long),
         torch.Tensor(nega_mask).to(torch.long),
-        torch.Tensor(nega_idxs_out).to(torch.long),        
+        torch.Tensor(nega_cates_out).to(torch.long),        
     )
 
     if len(outf_s) != 0:
-        batch_dict["outf_s"] = torch.stack(outf_s_out, 0).squeeze()
+        batch_dict["outf_s"] = torch.cat(outf_s_out, 0)
 
     if len(posi_imgs) != 0:
         batch_dict["imgs"] = (
             torch.stack(posi_imgs_out, 0).squeeze(),
-            torch.stack(nega_imgs_out, 0).squeeze(),            
+            torch.stack(nega_imgs_out, 0).squeeze()
         )
     if len(posi_s) != 0:
         batch_dict["s"] = (
-            torch.stack(posi_s_out, 0),
-            torch.stack(nega_s_out, 0),            
+            torch.cat(posi_s_out, 0),
+            torch.cat(nega_s_out, 0),            
         )        
 
     return batch_dict
