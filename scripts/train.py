@@ -1,10 +1,8 @@
 """Script for training."""
 import argparse
 import os
-import logging
 import warnings
 
-logging.basicConfig(level=logging.INFO)
 warnings.filterwarnings("ignore")
 
 import torch
@@ -36,7 +34,7 @@ def main(config, logger, debug=False):
     val_param = config.test_data_param or config.data_param
     logger.info(f"Data set for training: \n{val_param}")
     val_loader = FashionLoader(val_param, logger)
-
+    
     # Get net
     net = get_net(config, logger, debug)
 
