@@ -1,4 +1,4 @@
-test_data_param:
+data_param:
   phase: test
   batch_size: 2 # batch size, most ideal is 64
   data_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware # data root
@@ -13,6 +13,7 @@ test_data_param:
   use_outfit_semantic: true # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   transforms: true
+  cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
 
@@ -33,8 +34,10 @@ net_param:
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
+  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
+  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_28_23/fhn_t3_osem_pretrained_best_11_28.pt
 
 gpus: [0]
-result_file: results/fashion_hash_net_vse_ose_t3.npz
+# result_file: results/fhn_voe_11_28.npz
+result_file: results/test.npz
 log_level: DEBUG
