@@ -240,6 +240,7 @@ class FashionNet(nn.Module):
             # Get all feature vectors of a batch
             sub_olatent = olatent[idx]
             sub_ilatents = ilatents[mask == idx]
+            
             size = len(sub_ilatents)
             indx, indy = np.triu_indices(size, k=1)
 
@@ -253,7 +254,7 @@ class FashionNet(nn.Module):
                 score_i = self.core(pairwise).mean()
             elif self.param.hash_types == utils.param.WEIGHTED_HASH_BOTH:
                 score_i = self.core[0](pairwise).mean()
-                score_o = self.core[1](semwise).mean()                
+                score_o = self.core[1](semwise).mean()
             else:
                 ## TODO: Add user score
                 raise
@@ -292,10 +293,10 @@ class FashionNet(nn.Module):
         **inputs
     ):
         lco, bco = inputs["outf_s"]
-        posi_mask, posi_idxs, nega_mask, nega_idxs = inputs["masks"]
+        posi_mask, posi_cates, nega_mask, nega_cates = inputs["idxs"]
         
-        lcpi = self.latent_code(posi_feat, posi_idxs, encoder)
-        lcni = self.latent_code(nega_feat, nega_idxs, encoder)
+        lcpi = self.latent_code(posi_feat, posi_cates, encoder)
+        lcni = self.latent_code(nega_feat, nega_cates, encoder)
 
         # Score with relaxed features
         pscore = self.scores(lco, lcpi, posi_mask)  # list(): [0.33, 0.22], ...
@@ -358,10 +359,10 @@ class FashionNet(nn.Module):
         del outf_s
 
         # Pair-wise output
-        posi_idxs = inputs["masks"][1]
-        nega_idxs = inputs["masks"][3]        
+        posi_cates = inputs["idxs"][1]
+        nega_cates = inputs["idxs"][3]        
             
-        idxs = torch.cat([posi_idxs, nega_idxs])
+        cates = torch.cat([posi_cates, nega_cates])
 
         loss = dict()
         accuracy = dict()
@@ -389,12 +390,12 @@ class FashionNet(nn.Module):
         # Margin loss for ranking
         rank_loss = soft_margin_loss(diff)
         binary_loss = soft_margin_loss(binary_diff)
-        cls_loss = F.cross_entropy(visual_fc, idxs, reduction="none")
+        cls_loss = F.cross_entropy(visual_fc, cates, reduction="none")
 
         ##### Calculate accuracy #####
         acc = torch.gt(diff.data, 0)
         binary_acc = torch.gt(binary_diff, 0)
-        cate_acc = self.calc_cate_acc(visual_fc.detach(), idxs)
+        cate_acc = self.calc_cate_acc(visual_fc.detach(), cates)
 
         loss.update(
             rank_loss=rank_loss, binary_loss=binary_loss, cate_loss=cls_loss
@@ -404,9 +405,9 @@ class FashionNet(nn.Module):
         )
         return loss, accuracy
 
-    def calc_cate_acc(self, visual_fc, idxs):
-        pred_idxs = torch.argmax(visual_fc, dim=1)
-        return torch.eq(pred_idxs, idxs)
+    def calc_cate_acc(self, visual_fc, cates):
+        pred_cates = torch.argmax(visual_fc, dim=1)
+        return torch.eq(pred_cates, cates)
 
     ##TODO: Modify for not `shared weight` option, add user for very later
     def extract_features(self, inputs):
