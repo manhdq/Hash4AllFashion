@@ -132,6 +132,7 @@ class DataParam(_Param):
         num_workers=8,  # number of workers for dataloader
         shuffle=None,
         fsl=None,
+        cate_selection=None,
         transforms=True,
         num_pairwise=None,
         using_max_num_pairwise=True,
@@ -416,15 +417,11 @@ class FashionTrainParam(_Param):
             test_param.update(param)
             self.train_data_param = DataParam(**train_param)
             self.test_data_param = DataParam(**test_param)
-            self.data_param = None
-
-        ##TODO: Remove redundancy
-        if self.data_param:
-            param = self.data_param
             self.data_param = DataParam(**param)
 
         if self.net_param:
             self.net_param = NetParam(**self.net_param)
+
         if self.solver_param:
             self.solver_param = SolverParam(**self.solver_param)
             self.gpus = self.solver_param.gpus
