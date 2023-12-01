@@ -1,4 +1,5 @@
 import logging
+logging.basicConfig(level=logging.INFO)
 
 
 def config_log(stream_level="DEBUG", file_level="INFO", log_file=None):
@@ -10,7 +11,7 @@ def config_log(stream_level="DEBUG", file_level="INFO", log_file=None):
     file_level: logging level for log file
     """
     import tempfile
-    from logging.config import dictConfig
+    # from logging.config import dictConfig
 
     if log_file is None:
         _, log_file = tempfile.mkstemp()
