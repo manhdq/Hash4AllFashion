@@ -4,6 +4,8 @@ from .fashionnet import FashionNet
 from .basemodel import *
 from .backbones import *
 
+from icecream import ic
+
 
 def load_pretrained(state_dict, pretrained_state_dict):
     for name, param in pretrained_state_dict.items():
@@ -19,10 +21,12 @@ def get_net(config, logger, debug=False):
     """
     # Get net param
     net_param = config.net_param
+    data_param = config.data_param
     logger.info(f"Initializing {utils.colour(config.net_param.name)}")
     logger.info(net_param)
+
     # Dimension of latent codes
-    net = FashionNet(net_param, logger, cfg.SelectCate)
+    net = FashionNet(net_param, logger, data_param.cate_selection)
     state_dict = net.state_dict()
     load_trained = net_param.load_trained
 
