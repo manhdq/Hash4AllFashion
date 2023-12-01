@@ -21,12 +21,14 @@ from utils import param
 from utils.logger import get_logger
 from model import get_net
 
+from icecream import ic
+
 
 def update_npz(fn, results):
     os.makedirs(osp.dirname(fn), exist_ok=True)    
     if fn is None:
         return
-    if os.path.exists(fn):
+    if osp.exists(fn):
         pre_results = dict(np.load(fn, allow_pickle=True))
         pre_results.update(results)
         results = pre_results
@@ -37,19 +39,24 @@ def evalute_accuracy(config, logger):
     """Evaluate fashion net for accuracy."""
     # make data loader
     parallel, device = utils.get_device(config.gpus)
-    param = config.test_data_param
+    param = config.data_param
     loader = get_dataloader(param, logger)
     pbar = tqdm(loader)
     net = get_net(config, logger)
     net.eval()
 
+    ic(loader.num_sample)
+
     # set data mode to pair for testing pair-wise accuracy
     LOGGER.info("Testing for accuracy")
-    accuracy = binary = 0.0
+
+    num_sample = loader.num_sample
+    batchs = accuracy = binary = 0.0
 
     for idx, inputs in enumerate(pbar):
         # compute output and loss
-        batch_size = len(torch.unique(inputs["imgs"][0]))
+        batch_size = inputs["outf_s"].shape[0]
+        ic(batch_size)
         inputs = utils.to_device(inputs, device)
         with torch.no_grad():
             if parallel:
@@ -59,18 +66,25 @@ def evalute_accuracy(config, logger):
         _, batch_results = net.gather(output)
         batch_accuracy = batch_results["accuracy"]
         batch_binary = batch_results["binary_accuracy"]
-        LOGGER.info(
-            "Batch [%d]/[%d] Accuracy %.3f Accuracy (Binary Codes) %.3f",
-            idx,
-            loader.num_batch,
-            batch_accuracy,
-            batch_binary,
-        )
+        
+        # LOGGER.info(
+        #     "Batch [%d]/[%d] Accuracy %.3f Accuracy (Binary Codes) %.3f",
+        #     idx,
+        #     loader.num_batch,
+        #     batch_accuracy,
+        #     batch_binary,
+        # )
+
         accuracy += batch_accuracy * batch_size
         binary += batch_binary * batch_size
-    accuracy /= loader.num_sample
-    binary /= loader.num_sample
+        batchs += batch_size
+        
+    accuracy /= num_sample
+    binary /= num_sample
+    assert batchs == num_sample, ic(batchs)
+
     LOGGER.info("Average accuracy: %.3f, Binary Accuracy: %.3f", accuracy, binary)
+
     # save results
     if net.param.zero_iterm:
         results = dict(uaccuracy=accuracy, ubinary=binary)
@@ -89,29 +103,28 @@ def evalute_rank(config, logger):
         num_users = net.param.num_users
         scores = [[] for u in range(num_users)]
         binary = [[] for u in range(num_users)]
-        for inputs in tqdm.tqdm(loader, desc="Computing scores"):
-            uidx = inputs[-1].view(-1)
+        for inputs in tqdm(loader, desc="Computing scores"):
             inputs = utils.to_device(inputs, device)
             with torch.no_grad():
                 if parallel:
                     output = data_parallel(net, inputs, config.gpus)
                 else:
-                    output = net(*inputs)
-            # save scores for each user
-            for n, u in enumerate(uidx):
+                    scores, _, _ = net.visual_output(**inputs)
+            for n, s in enumerate(scores):
                 scores[u].append(output[0][n].item())
                 binary[u].append(output[1][n].item())
         return scores, binary
 
     parallel, device = utils.get_device(config.gpus)
     LOGGER.info("Testing for NDCG and AUC.")
-    print(config.net_param)
-    net = get_net(config)
+
+    net = get_net(config, logger)
     net.eval()
+
     data_param = config.data_param
     data_param.shuffle = False
     LOGGER.info("Dataset for positive tuples: %s", data_param)
-    loader = get_dataloader(data_param)
+    loader = get_dataloader(data_param, logger)
     loader.make_nega()
     loader.set_data_mode("PosiOnly")
     posi_score, posi_binary = outfit_scores()
@@ -119,6 +132,7 @@ def evalute_rank(config, logger):
     loader.set_data_mode("NegaOnly")
     nega_score, nega_binary = outfit_scores()
     LOGGER.info("Compute scores for negative outfits, done!")
+
     # compute ndcg
     mean_ndcg, avg_ndcg = utils.metrics.NDCG(posi_score, nega_score)
     mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(posi_binary, nega_binary)
@@ -135,6 +149,7 @@ def evalute_rank(config, logger):
         mean_auc,
         mean_auc_binary,
     )
+
     # save results
     results = dict(
         posi_score_binary=posi_binary,
@@ -151,6 +166,7 @@ def evalute_rank(config, logger):
         mean_auc_binary=mean_auc_binary,
     )
     update_npz(config.result_file, results)
+
     # saved ranked outfits
     result_dir = config.result_dir
     if config.result_dir is None:
