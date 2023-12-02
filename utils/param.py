@@ -271,7 +271,6 @@ class NetParam(_Param):
         self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
 
 
-
 class OptimParam(_Param):
     default = dict(
         name="SGD",
