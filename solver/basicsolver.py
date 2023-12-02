@@ -241,7 +241,7 @@ class BasicSolver(object):
             batch_size = len(torch.unique(inputs[0]))
             data_time = time() - lastest_time
             with torch.no_grad():
-                loss_, accuracy_ = self.step_batch(inputs)
+                loss_, accuracy_ = self.step_batch(**inputs)
                 loss = self.gather_loss(loss_, backward=False)
                 accuracy = self.gather_accuracy(accuracy_)
             # Update time and history
