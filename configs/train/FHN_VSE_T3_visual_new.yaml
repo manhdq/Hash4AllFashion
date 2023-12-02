@@ -42,7 +42,8 @@ net_param:
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
+  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt  
 
 solver_param:
   name: "FashionNetSolver"
