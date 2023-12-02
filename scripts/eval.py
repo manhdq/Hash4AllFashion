@@ -19,7 +19,7 @@ from dataset import get_dataloader
 import utils
 from utils import param
 from utils.logger import get_logger
-from model import get_net
+from model.fashionnet import get_net
 
 from icecream import ic
 
@@ -62,7 +62,7 @@ def evalute_accuracy(config, logger):
             if parallel:
                 output = data_parallel(net, inputs, config.gpus)
             else:
-                output = net(**inputs)
+                output = net(inputs)
         _, batch_results = net.gather(output)
         batch_accuracy = batch_results["accuracy"]
         batch_binary = batch_results["binary_accuracy"]
@@ -103,16 +103,17 @@ def evalute_rank(config, logger):
         num_users = net.param.num_users
         scores = [[] for u in range(num_users)]
         binary = [[] for u in range(num_users)]
+        u = 0  # 1 user
         for inputs in tqdm(loader, desc="Computing scores"):
             inputs = utils.to_device(inputs, device)
             with torch.no_grad():
                 if parallel:
-                    output = data_parallel(net, inputs, config.gpus)
+                    outputs = data_parallel(net, inputs, config.gpus)
                 else:
-                    scores, _, _ = net.visual_output(**inputs)
-            for n, s in enumerate(scores):
-                scores[u].append(output[0][n].item())
-                binary[u].append(output[1][n].item())
+                    outputs, _, _ = net.visual_output(**inputs)
+            for n, score in enumerate(scores):
+                scores[u].append(outputs[0])
+                binary[u].append(outputs[1])
         return scores, binary
 
     parallel, device = utils.get_device(config.gpus)
