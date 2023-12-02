@@ -40,7 +40,7 @@ class RankMetric(threading.Thread):
 
     def process(self, data):
         with threading.Lock():
-            scores = data # scores: (pscore, nscore, bpscore, bnscore)
+            scores = data # scores: (pscore, bpscore, nscore, bnscore)
             for u in range(self.num_users):
                 for n, score in enumerate(scores):
                     for s in score:
@@ -55,10 +55,10 @@ class RankMetric(threading.Thread):
             self.process(data)
 
     def rank(self):
-        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])  # [U, B]
-        binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
-        ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
-        binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
+        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[2])  # [U, B]
+        binary_auc = utils.metrics.calc_AUC(self._scores[1], self._scores[3])
+        ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[2])
+        binary_ndcg = utils.metrics.calc_NDCG(self._scores[1], self._scores[3])
         return dict(
             auc=auc, binary_auc=binary_auc, ndcg=ndcg, binary_ndcg=binary_ndcg
         )
@@ -285,58 +285,60 @@ class FashionNet(nn.Module):
         return latent_code
 
     ##TODO: Modify for not `shared weight` option, add user for very later
+
     def _pairwise_output(
         self,
-        posi_feat,
-        nega_feat,
-        encoder,
-        **inputs
+        lco,
+        bco,
+        feat,
+        mask,
+        cates,
+        encoder    
     ):
-        lco, bco = inputs["outf_s"]
-        posi_mask, posi_cates, nega_mask, nega_cates = inputs["idxs"]
-        
-        lcpi = self.latent_code(posi_feat, posi_cates, encoder)
-        lcni = self.latent_code(nega_feat, nega_cates, encoder)
-
         # Score with relaxed features
-        pscore = self.scores(lco, lcpi, posi_mask)  # list(): [0.33, 0.22], ...
-        nscore = self.scores(lco, lcni, nega_mask)
+        lci = self.latent_code(feat, cates, encoder)
+        score = self.scores(lco, lci, mask)        
 
         # Score with binary codes
-        bcpi = self.sign(lcpi)
-        bcni = self.sign(lcni)
-        bpscore = self.scores(bco, bcpi, posi_mask)
-        bnscore = self.scores(bco, bcni, nega_mask)
+        bci = self.sign(lci)
+        bscore = self.scores(bco, bci, mask)
 
         # latents = torch.stack(lcpi + lcni, dim=1)
         # latents = latents.view(-1, self.param.dim)
 
-        return (pscore, nscore, bpscore, bnscore), (lcpi, lcni)
+        return (score, bscore), (lci, bci)
 
     def visual_output(self, **inputs):
-        posi_imgs, nega_imgs = inputs["imgs"]        
+        outf_s = inputs["outf_s"]
+        lco, bco = self.outfit_semantic_latent(outf_s)
 
         # Extract visual features
-        if self.features is not None:
-            posi_feat = self.features(posi_imgs)
-            nega_feat = self.features(nega_imgs)
-        else:
-            posi_feat = posi_imgs
-            nega_feat = posi_feat
+        feats =  [
+            self.features(imgs)
+            for imgs in inputs["imgs"]
+            if len(imgs) != 0
+        ]
 
-        feats = torch.cat([posi_feat, nega_feat], dim=0)
-
-        scores, latents = self._pairwise_output(
-            posi_feat,
-            nega_feat,
-            self.encoder_v,
-            **inputs
+        scores, latents = zip(
+            *[
+                self._pairwise_output(
+                    lco,
+                    bco,
+                    feat,
+                    inputs["mask"][idx],
+                    inputs["cates"][idx],
+                    self.encoder_v,
+                )
+                for idx, feat in enumerate(feats)
+            ]
         )
-
+        scores = tuple([s for tpl in scores for s in tpl])
+        feats = torch.cat(feats, dim=0)
+        
         return scores, latents, feats
 
     def semantic_output(self, **inputs):
-        posi_feat, nega_feat = inputs["imgs"]
+        posi_feat, nega_feat = inputs["s"]
 
         scores, latents = self._pairwise_output(
             posi_feat,
@@ -347,23 +349,17 @@ class FashionNet(nn.Module):
 
         return scores, latents
     
-    def outfit_semantic_output(self, outf_feat):
+    def outfit_semantic_latent(self, outf_feat):
         lco = self.encoder_o(outf_feat)
         bco = self.sign(lco)
         return lco, bco
 
     def forward(self, **inputs):
         """Forward according to setting."""
-        outf_s = inputs["outf_s"]
-        inputs["outf_s"] = self.outfit_semantic_output(outf_s)
-        del outf_s
-
-        # Pair-wise output
-        posi_cates = inputs["idxs"][1]
-        nega_cates = inputs["idxs"][3]        
-            
+        posi_cates, nega_cates = inputs["cates"]
         cates = torch.cat([posi_cates, nega_cates])
 
+        # Pair-wise output
         loss = dict()
         accuracy = dict()
 
@@ -380,11 +376,10 @@ class FashionNet(nn.Module):
 
         visual_fc = self.classifier_v(visual_feats)
 
-        # print(scores) ##TODO:
         data = [s.tolist() for s in scores]
         self.rank_metric.put(data)
-        diff = scores[0] - scores[1]
-        binary_diff = scores[2] - scores[3]
+        diff = scores[0] - scores[2]
+        binary_diff = scores[1] - scores[3]
 
         ##### Calculate loss #####
         # Margin loss for ranking
@@ -413,10 +408,7 @@ class FashionNet(nn.Module):
     def extract_features(self, inputs):
         feats_dict = defaultdict(None)
 
-        if self.features is not None:
-            feats = self.features(inputs)
-        else:
-            feats = inputs
+        feats = self.features(inputs)
             
         feats_dict["visual_fc"] = self.classifier_v(feats)
 
@@ -449,3 +441,78 @@ class FashionNet(nn.Module):
                     m.init_weights()
             else:
                 model.init_weights()
+
+
+def load_pretrained(state_dict, pretrained_state_dict):
+    for name, param in pretrained_state_dict.items():
+        if name in state_dict.keys() and "classifier" not in name:
+            # print(name)
+            param = param.data
+            state_dict[name].copy_(param)
+            
+
+def get_net(config, logger, debug=False):
+    """
+    Get network.
+    """
+    # Get net param
+    net_param = config.net_param
+    data_param = config.data_param
+    logger.info(f"Initializing {utils.colour(config.net_param.name)}")
+    logger.info(net_param)
+
+    # Dimension of latent codes
+    net = FashionNet(net_param, logger, data_param.cate_selection)
+    state_dict = net.state_dict()
+    load_trained = net_param.load_trained
+
+    # Load model from pre-trained file
+    if load_trained:
+        # Load weights from pre-trained model
+        num_devices = torch.cuda.device_count()
+        map_location = {"cuda:{}".format(i): "cpu" for i in range(num_devices)}
+        logger.info(f"Loading pre-trained model from {load_trained}")
+        pretrained_state_dict = torch.load(load_trained, map_location=map_location)
+
+        if debug:
+            print("Before load pretrained...")
+            for name, param in pretrained_state_dict.items():
+                if name in state_dict.keys():
+                    param = param.data
+                    print((state_dict[name] == param).all())
+                
+        # when new user problem from pre-trained model
+        if config.cold_start:
+            # TODO: fit with new arch
+            # reset the user's embedding
+            logger.info("Reset the user embedding")
+            # TODO: use more decent way to load pre-trained model for new user
+            weight = "user_embedding.encoder.weight"
+            pretrained_state_dict[weight] = torch.zeros(
+                net_param.dim, net_param.num_users
+            )
+            net.load_state_dict(pretrained_state_dict)
+            ##TODO:
+            net.user_embedding.init_weights()
+        else:
+            # load pre-trained model
+            # net.load_state_dict(pretrained_state_dict)
+            load_pretrained(state_dict, pretrained_state_dict)
+
+            if debug:
+                print("After load pretrained...")
+                state_dict = net.state_dict()
+                for name, param in pretrained_state_dict.items():
+                    if name in state_dict.keys():
+                        param = param.data
+                        print((state_dict[name] == param).all())
+
+    elif config.resume:  # resume training
+        logger.info(f"Training resume from {config.resume}")
+    else:
+        logger.info(f"Loading weights from backbone {net_param.backbone}.")
+        net.init_weights()
+    logger.info(f"Copying net to GPU-{config.gpus[0]}")
+    net.cuda(device=config.gpus[0])
+    return net
+                
