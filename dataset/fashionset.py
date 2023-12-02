@@ -577,10 +577,58 @@ class FashionDataset(Dataset):
             "nega_tpl": (nega_cates, nega_v, nega_s)
         }
 
+    def _PosiOnly(self, index):
+        """Get single outfit."""
+        posi_oid, posi_cates, posi_tpl = self.get_tuple(
+            self.posi_df, int(index // self.ratio)
+        )
+
+        # Get semantic embedding of outfits
+        if self.outfit_semantic is not None:
+            outf_s = [torch.from_numpy(self.outfit_semantic[posi_oid])]
+        else:
+            outf_s = []
+
+        ## Mapping to tensor idxs for classification training
+        posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
+
+        ##TODO: Dynamic options for visual and semantic selections
+        posi_tpl = self.datum.get(posi_tpl)
+        posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
+
+        return {
+            "outf_s": outf_s,
+            "posi_tpl": (posi_cates, posi_v, posi_s),
+            "nega_tpl": ([], [], [])
+        }
+
+    def _NegaOnly(self, index):
+        nega_oid, nega_cates, nega_tpl = self.get_tuple(self.nega_df, index)
+
+        # Get semantic embedding of outfits
+        if self.outfit_semantic is not None:
+            outf_s = [torch.from_numpy(self.outfit_semantic[posi_oid])]
+        else:
+            outf_s = []
+
+        ## Mapping to tensor idxs for classification training
+        nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
+
+        nega_tpl = self.datum.get(nega_tpl)
+        nega_v, nega_s = nega_tpl["visual"], nega_tpl["semantic"]    
+
+        return {
+            "outf_s": outf_s,
+            "posi_tpl": ([], [], []),
+            "nega_tpl": (nega_cates, nega_v, nega_s)
+        }    
+    
     def __getitem__(self, index):
         """Get one tuple of examples by index."""
         return dict(
             PairWise=self._PairWise,
+            PosiOnly=self._PosiOnly,
+            NegaOnly=self._NegaOnly,            
         )[
             self.param.data_mode
         ](index)
@@ -589,6 +637,8 @@ class FashionDataset(Dataset):
         """Return the size of dataset."""
         return dict(
             PairWise=int(self.ratio * self.num_posi),
+            PosiOnly=self.num_posi,  # all positive tuples
+            NegaOnly=self.ratio * self.num_posi,  # all negative tuples            
         )[self.param.data_mode]
 
     @property
@@ -708,7 +758,7 @@ def outfit_fashion_collate(batch):
         ##TODO: Describe later
     --------
     """
-    batch_dict = defaultdict(None)
+    batch_dict = dict()
 
     (
         outf_s_out,
@@ -739,27 +789,66 @@ def outfit_fashion_collate(batch):
         nega_imgs_out.extend(nega_imgs)
         nega_s_out.extend(nega_s)
 
-    batch_dict["idxs"] = (
-        torch.Tensor(posi_mask).to(torch.long),
-        torch.Tensor(posi_cates_out).to(torch.long),
-        torch.Tensor(nega_mask).to(torch.long),
-        torch.Tensor(nega_cates_out).to(torch.long),        
+    if len(outf_s) != 0:
+        # batch_dict["outf_s"].append(torch.cat(outf_s_out, 0))
+        outf_s_out = torch.cat(outf_s_out, 0)        
+        
+    if len(posi_imgs_out) != 0:
+        # batch_dict["imgs"].append(torch.stack(posi_imgs_out, 0).squeeze())
+        # batch_dict["idxs"].append(
+        #     torch.Tensor(posi_mask).to(torch.long),
+        #     torch.Tensor(posi_cates_out).to(torch.long),
+        # )
+        posi_imgs_out = torch.stack(posi_imgs_out, 0).squeeze()
+        posi_mask = torch.Tensor(posi_mask).to(torch.long)
+        posi_cates_out = torch.Tensor(posi_cates_out).to(torch.long)
+
+    if len(nega_imgs_out) != 0:
+        # batch_dict["imgs"].append(torch.stack(nega_imgs_out, 0).squeeze())
+        # batch_dict["idxs"].append(
+        #     (
+        #         torch.Tensor(nega_mask).to(torch.long),
+        #         torch.Tensor(nega_cates_out).to(torch.long),
+        #     )
+        # )
+        nega_imgs_out = torch.stack(nega_imgs_out, 0).squeeze()
+        nega_mask = torch.Tensor(nega_mask).to(torch.long)
+        nega_cates_out = torch.Tensor(nega_cates_out).to(torch.long)
+
+    if len(posi_s_out) != 0:
+        # batch_dict["s"].append(
+        #     (
+        #         torch.cat(posi_s_out, 0)
+        #         torch.cat(nega_s_out, 0)                
+        #     )
+        # )
+        posi_s_out = torch.cat(posi_s_out, 0)
+
+    if len(nega_s_out) != 0:
+        nega_s_out = torch.cat(nega_s_out, 0)        
+
+    batch_dict["outf_s"] = outf_s_out
+
+    batch_dict["cates"] = (
+        posi_cates_out,
+        nega_cates_out
     )
 
-    if len(outf_s) != 0:
-        batch_dict["outf_s"] = torch.cat(outf_s_out, 0)
+    batch_dict["mask"] = (
+        posi_mask,
+        nega_mask
+    )
 
-    if len(posi_imgs) != 0:
-        batch_dict["imgs"] = (
-            torch.stack(posi_imgs_out, 0).squeeze(),
-            torch.stack(nega_imgs_out, 0).squeeze()
-        )
-    if len(posi_s) != 0:
-        batch_dict["s"] = (
-            torch.cat(posi_s_out, 0),
-            torch.cat(nega_s_out, 0),            
-        )        
+    batch_dict["imgs"] = (
+        posi_imgs_out,
+        nega_imgs_out
+    )
 
+    batch_dict["s"] = (
+        posi_s_out,
+        nega_s_out
+    )    
+    
     return batch_dict
 
 
