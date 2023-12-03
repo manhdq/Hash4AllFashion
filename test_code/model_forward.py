@@ -39,9 +39,7 @@ print(config.net_param.load_trained)
 
 # %%
 transforms = get_img_trans(param.phase, param.image_size)
-dataset = fashionset.FashionDataset(
-    param, transforms, cate_selection, logger
-)
+dataset = fashionset.FashionDataset(param, transforms, cate_selection, logger)
 
 # %%
 dataset.posi_df.head()

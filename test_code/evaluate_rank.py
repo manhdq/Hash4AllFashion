@@ -51,9 +51,7 @@ cate_selection = param.cate_selection
 
 # %%
 transforms = get_img_trans(param.phase, param.image_size)
-dataset = fashionset.FashionDataset(
-    param, transforms, cate_selection, logger
-)
+dataset = fashionset.FashionDataset(param, transforms, cate_selection, logger)
 
 # %%
 dataset.nega_df.head()
@@ -81,14 +79,12 @@ scores
 # %%
 parallel, device = utils.get_device(config.gpus)
 
+
 # %%
 def outfit_scores():
     """Compute rank scores for data set."""
     num_users = net.param.num_users
-    scores = [
-        [[] for _ in range(num_users)]
-        for _ in range(4)
-    ]
+    scores = [[[] for _ in range(num_users)] for _ in range(4)]
     u = 0  # 1 user
     for inputs in tqdm(loader, desc="Computing scores"):
         inputs = utils.to_device(inputs, device)
@@ -101,6 +97,7 @@ def outfit_scores():
                 for s in score:
                     scores[n][u].append(s)  # [N, U, S, 1]
     return scores
+
 
 # %%
 scores = outfit_scores()
@@ -139,7 +136,7 @@ num_sample = 9
 new_sizes = (240, 240)
 
 # %%
-idxs = random.sample(range(len(loader)-1), num_sample)
+idxs = random.sample(range(len(loader) - 1), num_sample)
 idxs
 
 # %%
@@ -158,16 +155,16 @@ for idx in idxs:
     # Upscale images in outfit with less items so that
     # they can be stacked vertically with the other outfit
     ratio = len_p / len_n
-    
+
     if ratio > 1:
         n_sizes = (int(w * ratio), int(h * ratio))
     else:
-        p_sizes = (int(w * 1/ratio), int(h * 1/ratio))        
+        p_sizes = (int(w * 1 / ratio), int(h * 1 / ratio))
 
     sizes = [p_sizes, n_sizes]
 
     # Get posi outfit description
-    oid, mode = outf_id.split('_')
+    oid, mode = outf_id.split("_")
     outf_meta = df_outfit_meta[df_outfit_meta["id"] == int(oid)]
     outf_desc = outf_meta.en_Outfit_Description
     if mode == "2":
@@ -183,17 +180,22 @@ for idx in idxs:
         for i, item_id in enumerate(items):
             img_path = osp.join(image_dir, item_id)
             try:
-                img = image_io.load_image(
-                    img_path,
-                    toRGB=False
-                )
+                img = image_io.load_image(img_path, toRGB=False)
             except Exception as e:
                 print(e)
                 continue
 
             cate = cates[i]
             img = cv2.resize(img, sizes[idx])
-            img = cv2.putText(img, cate, (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)            
+            img = cv2.putText(
+                img,
+                cate,
+                (50, 70),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 255),
+                2,
+            )
             outf_imgs[idx].append(img)
 
     # Stack outfit images horizontally
@@ -204,8 +206,24 @@ for idx in idxs:
     # nih, niw, _ = nega_outf.shape
 
     # Write score to outfit images
-    posi_outf = cv2.putText(posi_outf, f"{bpscore[0]:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    nega_outf = cv2.putText(nega_outf, f"{bnscore[0]:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+    posi_outf = cv2.putText(
+        posi_outf,
+        f"{bpscore[0]:.2f}",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (0, 255, 0),
+        2,
+    )
+    nega_outf = cv2.putText(
+        nega_outf,
+        f"{bnscore[0]:.2f}",
+        (10, 30),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (255, 0, 0),
+        2,
+    )
 
     # Stack images of 2 outfits vertically
     outfs = np.vstack([posi_outf, nega_outf])
@@ -216,11 +234,7 @@ for idx in idxs:
 
 # %%
 plot.display_multiple_images(
-    outf_pairs,
-    grid_nrows=3,
-    titles=outf_descs,
-    axes_pad=1.,
-    line_length=10
+    outf_pairs, grid_nrows=3, titles=outf_descs, axes_pad=1.0, line_length=10
 )
 
 # %%

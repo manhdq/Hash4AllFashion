@@ -11,9 +11,7 @@ CateName = [
     "accessory",
 ]
 
-CateIdx = {
-    cate: i for i, cate in enumerate(CateName)
-}
+CateIdx = {cate: i for i, cate in enumerate(CateName)}
 
 NumPhase = 3
 Phase = ["train", "val", "test"]

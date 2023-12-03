@@ -26,7 +26,7 @@ from icecream import ic
 
 
 def update_npz(fn, results):
-    os.makedirs(osp.dirname(fn), exist_ok=True)    
+    os.makedirs(osp.dirname(fn), exist_ok=True)
     if fn is None:
         return
     if osp.exists(fn):
@@ -67,7 +67,7 @@ def evalute_accuracy(config, logger):
         _, batch_results = net.gather(output)
         batch_accuracy = batch_results["accuracy"]
         batch_binary = batch_results["binary_accuracy"]
-        
+
         # LOGGER.info(
         #     "Batch [%d]/[%d] Accuracy %.3f Accuracy (Binary Codes) %.3f",
         #     idx,
@@ -79,12 +79,14 @@ def evalute_accuracy(config, logger):
         accuracy += batch_accuracy * batch_size
         binary += batch_binary * batch_size
         batchs += batch_size
-        
+
     accuracy /= num_sample
     binary /= num_sample
     assert batchs == num_sample, ic(batchs)
 
-    LOGGER.info("Average accuracy: %.3f, Binary Accuracy: %.3f", accuracy, binary)
+    LOGGER.info(
+        "Average accuracy: %.3f, Binary Accuracy: %.3f", accuracy, binary
+    )
 
     # save results
     if net.param.zero_iterm:
@@ -121,10 +123,7 @@ def evalute_rank(config, logger):
     def outfit_scores():
         """Compute rank scores for data set."""
         num_users = net.param.num_users
-        scores = [
-            [[] for _ in range(num_users)]
-            for _ in range(4)
-        ]
+        scores = [[[] for _ in range(num_users)] for _ in range(4)]
         u = 0  # 1 user
         for inputs in tqdm(loader, desc="Computing scores"):
             inputs = utils.to_device(inputs, device)
@@ -136,7 +135,7 @@ def evalute_rank(config, logger):
                 for n, score in enumerate(outputs):
                     for s in score:
                         scores[n][u].append(s)  # [N, U, S, 1]
-        return scores    
+        return scores
 
     parallel, device = utils.get_device(config.gpus)
     LOGGER.info("Testing for NDCG and AUC.")
@@ -168,7 +167,9 @@ def evalute_rank(config, logger):
 
     # compute ndcg
     mean_ndcg, avg_ndcg = utils.metrics.NDCG(scores[0], scores[2])
-    mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(scores[1], scores[3])
+    mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(
+        scores[1], scores[3]
+    )
     aucs, mean_auc = utils.metrics.ROC(scores[0], scores[2])
     aucs_binary, mean_auc_binary = utils.metrics.ROC(scores[1], scores[3])
     LOGGER.info(
@@ -232,7 +233,7 @@ def fitb(config, logger):
             if parallel:
                 _, score_b = data_parallel(net, inputs, config.gpus)
             else:
-               scores, _ = net(**inputs)
+                scores, _ = net(**inputs)
         # the first item is the groud-truth item
         if torch.argmax(scores).item() == 0:
             correct += 1
@@ -285,7 +286,7 @@ if __name__ == "__main__":
     config.add_timestamp()
 
     logger = get_logger(args.env, config)
-    logger.info(f"Fashion param : {config}")    
+    logger.info(f"Fashion param : {config}")
 
     if args.action in actions:
         ACTION_FUNS[args.action](config, logger)

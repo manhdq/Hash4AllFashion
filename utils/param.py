@@ -194,7 +194,7 @@ class DataParam(_Param):
     @property
     def visual_embedding(self):
         return os.path.join(self.data_root, "visual_embedding.pkl")
-    
+
     def image_list_fn(self):
         ##TODO: Delete this
         return None
@@ -240,7 +240,7 @@ class NetParam(_Param):
         num_users=630,
         dim=128,
         outfit_semantic_dim=512,
-        visual_embedding_dim=512,        
+        visual_embedding_dim=512,
         single=False,
         binary01=False,
         triplet=False,
@@ -253,14 +253,14 @@ class NetParam(_Param):
         use_semantic=False,
         use_visual=False,
         use_outfit_semantic=False,
-        use_visual_embedding=False,        
+        use_visual_embedding=False,
         hash_types=0,
         margin=None,
         debug=False,
         shared_weight_network=False,
         pairwise_weight=1.0,
         outfit_semantic_weight=1.0,
-        load_trained=None, # pretrained weight
+        load_trained=None,  # pretrained weight
     )
 
     def setup(self):
@@ -513,7 +513,9 @@ class FITBDataParam(_Param):
         # no shuffle
         self.shuffle = False
         if not (self.use_semantic or self.use_visual):
-            warnings.warn("Neither semantic nor visual is selected! ", RuntimeWarning)
+            warnings.warn(
+                "Neither semantic nor visual is selected! ", RuntimeWarning
+            )
 
     @property
     def semantic_fn(self):
@@ -543,7 +545,8 @@ class FITBDataParam(_Param):
     @property
     def image_list_fn(self):
         return [
-            os.path.join(self.data_dir, self.list_fmt.format(p)) for p in cfg.CateName
+            os.path.join(self.data_dir, self.list_fmt.format(p))
+            for p in cfg.CateName
         ]
 
     @property
@@ -554,8 +557,8 @@ class FITBDataParam(_Param):
     @property
     def posi_fn(self):
         return os.path.join(self.data_dir, self.posi_fmt.format(self.phase))
-    
-            
+
+
 # TODO: Check FashionParam
 class FashionParam(_Param):
     """_Param for fashion hash net."""
@@ -580,7 +583,9 @@ class FashionParam(_Param):
 
     def setup(self):
         # if set specific configuration fopr train/test
-        if not (self.train_data_param is None and self.test_data_param is None):
+        if not (
+            self.train_data_param is None and self.test_data_param is None
+        ):
             param = self.data_param or dict()
             train_param = self.train_data_param or dict()
             test_param = self.test_data_param or dict()
