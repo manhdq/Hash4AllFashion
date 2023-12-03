@@ -21,6 +21,7 @@ from utils import param
 from utils.logger import get_logger
 from model.fashionnet import get_net
 
+from reproducible_code.tools.io import save_txt, load_txt
 from icecream import ic
 
 
@@ -98,23 +99,44 @@ def evalute_accuracy(config, logger):
 def evalute_rank(config, logger):
     """Evaluate fashion net for NDCG an AUC."""
 
+    # def outfit_scores():
+    #     """Compute rank scores for data set."""
+    #     num_users = net.param.num_users
+    #     scores = [[] for u in range(num_users)]
+    #     binary = [[] for u in range(num_users)]
+    #     u = 0  # 1 user
+    #     for inputs in tqdm(loader, desc="Computing scores"):
+    #         inputs = utils.to_device(inputs, device)
+    #         with torch.no_grad():
+    #             if parallel:
+    #                 outputs = data_parallel(net, inputs, config.gpus)
+    #             else:
+    #                 outputs, _, _ = net.visual_output(**inputs)
+    #                 outputs = [s.tolist() for s in outputs]
+    #         # for n, score in enumerate(scores):
+    #         scores[u].append(outputs[0])
+    #         binary[u].append(outputs[1])
+    #     return scores, binary
+
     def outfit_scores():
         """Compute rank scores for data set."""
         num_users = net.param.num_users
-        scores = [[] for u in range(num_users)]
-        binary = [[] for u in range(num_users)]
+        scores = [
+            [[] for _ in range(num_users)]
+            for _ in range(4)
+        ]
         u = 0  # 1 user
         for inputs in tqdm(loader, desc="Computing scores"):
             inputs = utils.to_device(inputs, device)
             with torch.no_grad():
-                if parallel:
-                    outputs = data_parallel(net, inputs, config.gpus)
-                else:
-                    outputs, _, _ = net.visual_output(**inputs)
-            for n, score in enumerate(scores):
-                scores[u].append(outputs[0])
-                binary[u].append(outputs[1])
-        return scores, binary
+                outputs, _, _ = net.visual_output(**inputs)
+                outputs = [s.tolist() for s in outputs]
+
+            for u in range(num_users):
+                for n, score in enumerate(outputs):
+                    for s in score:
+                        scores[n][u].append(s)  # [N, U, S, 1]
+        return scores    
 
     parallel, device = utils.get_device(config.gpus)
     LOGGER.info("Testing for NDCG and AUC.")
@@ -127,18 +149,40 @@ def evalute_rank(config, logger):
     LOGGER.info("Dataset for positive tuples: %s", data_param)
     loader = get_dataloader(data_param, logger)
     loader.make_nega()
-    loader.set_data_mode("PosiOnly")
-    posi_score, posi_binary = outfit_scores()
-    LOGGER.info("Compute scores for positive outfits, done!")
-    loader.set_data_mode("NegaOnly")
-    nega_score, nega_binary = outfit_scores()
-    LOGGER.info("Compute scores for negative outfits, done!")
+
+    # loader.set_data_mode("PosiOnly")
+    # posi_score, posi_binary = outfit_scores()
+    # LOGGER.info("Compute scores for positive outfits, done!")
+
+    # loader.set_data_mode("NegaOnly")
+    # nega_score, nega_binary = outfit_scores()
+    # LOGGER.info("Compute scores for negative outfits, done!")
+
+    # # compute ndcg
+    # mean_ndcg, avg_ndcg = utils.metrics.NDCG(posi_score, nega_score)
+    # mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(posi_binary, nega_binary)
+    # aucs, mean_auc = utils.metrics.ROC(posi_score, nega_score)
+    # aucs_binary, mean_auc_binary = utils.metrics.ROC(posi_binary, nega_binary)
+
+    scores = outfit_scores()
 
     # compute ndcg
-    mean_ndcg, avg_ndcg = utils.metrics.NDCG(posi_score, nega_score)
-    mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(posi_binary, nega_binary)
-    aucs, mean_auc = utils.metrics.ROC(posi_score, nega_score)
-    aucs_binary, mean_auc_binary = utils.metrics.ROC(posi_binary, nega_binary)
+    mean_ndcg, avg_ndcg = utils.metrics.NDCG(scores[0], scores[2])
+    mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(scores[1], scores[3])
+    aucs, mean_auc = utils.metrics.ROC(scores[0], scores[2])
+    aucs_binary, mean_auc_binary = utils.metrics.ROC(scores[1], scores[3])
+    LOGGER.info(
+        "Metric:\n"
+        "- average ndcg:%.4f\n"
+        "- average ndcg(binary):%.4f\n"
+        "- mean auc:%.4f\n"
+        "- mean auc(binary):%.4f",
+        mean_ndcg.mean(),
+        mean_ndcg_binary.mean(),
+        mean_auc,
+        mean_auc_binary,
+    )
+
     LOGGER.info(
         "Metric:\n"
         "- average ndcg:%.4f\n"
@@ -168,53 +212,13 @@ def evalute_rank(config, logger):
     )
     update_npz(config.result_file, results)
 
-    # saved ranked outfits
-    result_dir = config.result_dir
-    if config.result_dir is None:
-        return
-    assert not data_param.variable_length
-    labels = [
-        np.array([1] * len(pos) + [0] * len(neg))
-        for pos, neg in zip(posi_score, nega_score)
-    ]
-    outfits = loader.dataset.get_outfits_list()
-    sorting = [
-        np.argsort(-1.0 * np.array(pos + neg))
-        for pos, neg in zip(posi_binary, nega_binary)
-    ]
-    utils.check.check_dirs(result_dir, action="mkdir")
-    ndcg_fn = os.path.join(result_dir, "ndcg.txt")
-    label_folder = os.path.join(result_dir, "label")
-    outfit_folder = os.path.join(result_dir, "outfit")
-    utils.check.check_dirs([label_folder, outfit_folder], action="mkdir")
-    np.savetxt(ndcg_fn, mean_ndcg_binary)
-    for uid, ranked_idx in tqdm.tqdm(enumerate(sorting), desc="Computing outfits"):
-        # u is the user id, rank is the sorting for outfits
-        folder = os.path.join(outfit_folder, "user-%03d" % uid)
-        utils.check.check_dirs(folder, action="mkdir")
-        label_file = os.path.join(label_folder, "user-%03d.txt" % uid)
-        # save the rank list for current user
-        np.savetxt(label_file, labels[uid][ranked_idx], fmt="%d")
-        # rank the outfit according to rank scores
-        for n, idx in enumerate(ranked_idx):
-            # tpl is the n-th ranked outfit
-            tpl = outfits[uid][idx]
-            y = labels[uid][idx]
-            image_folder = os.path.join(folder, "top-%03d-%d" % (n, y))
-            utils.check.check_dirs(image_folder, action="mkdir")
-            for cate, item_id in enumerate(tpl):
-                src = loader.dataset.get_image_path(cate, item_id)
-                dst = os.path.join(image_folder, "%02d.jpg" % cate)
-                shutil.copy2(src, dst)
-    LOGGER.info("All outfits are save in %s", config.result_dir)
-
 
 # TODO: Check fitb
 def fitb(config, logger):
     parallel, device = utils.get_device(config.gpus)
-    data_param = param.fitb_data_param
-    LOGGER.info("Get data for FITB questions: %s", data_param)
-    loader = get_dataloader(data_param)
+    param = config.fitb_data_param
+    LOGGER.info("Get data for FITB questions: %s", param)
+    loader = get_dataloader(param, loggsr)
     pbar = tqdm.tqdm(loader, desc="Computing scores")
     net = get_net(config, logger)
     net.eval()
@@ -228,9 +232,9 @@ def fitb(config, logger):
             if parallel:
                 _, score_b = data_parallel(net, inputs, config.gpus)
             else:
-                _, score_b = net(**inputs)
+               scores, _ = net(**inputs)
         # the first item is the groud-truth item
-        if torch.argmax(score_b).item() == 0:
+        if torch.argmax(scores).item() == 0:
             correct += 1
         cnt += 1
         pbar.set_description("Accuracy: {:.3f}".format(correct / cnt))
@@ -238,7 +242,6 @@ def fitb(config, logger):
     LOGGER.info("FITB Accuracy %.4f", fitb_acc)
     results = dict(fitb_acc=fitb_acc)
     update_npz(config.result_file, results)
-
 
 
 ACTION_FUNS = {
