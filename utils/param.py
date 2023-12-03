@@ -504,11 +504,11 @@ class FITBDataParam(_Param):
         if self.variable_length:
             # regard the variable-length outfits as four-category
             self.cate_map = [0, 0, 1, 2]
-            self.cate_name = ["top", "top", "bottom", "shoe"]
+            self.cate_name = ["top", "top", "bottom", "footwear"]
         else:
             # the normal outfits
             self.cate_map = [0, 1, 2]
-            self.cate_name = ["top", "bottom", "shoe"]
+            self.cate_name = ["top", "bottom", "footwear"]
         # tricky implementation for FITB by loading one task in one batch.
         # no shuffle
         self.shuffle = False
