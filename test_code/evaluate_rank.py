@@ -136,7 +136,7 @@ df_outfit_meta = io.load_csv(
     osp.join(data_dir, "important", "outfit_meta_v2.csv")
 )
 num_sample = 9
-new_sizes = (224, 224)
+new_sizes = (240, 240)
 
 # %%
 idxs = random.sample(range(len(loader)-1), num_sample)
@@ -148,9 +148,23 @@ outf_pairs = []
 
 for idx in idxs:
     bpscore, bnscore = scores[1][0][idx], scores[3][0][idx]
+    h, w = new_sizes
+    p_sizes = n_sizes = (h, w)
 
     # Get posi outfit and nega outfit from loader
     outf_id, outfs = loader.get_outfits(idx)
+    len_p, len_n = len(outfs[0][0]), len(outfs[1][0])
+
+    # Upscale images in outfit with less items so that
+    # they can be stacked vertically with the other outfit
+    ratio = len_p / len_n
+    
+    if ratio > 1:
+        n_sizes = (int(w * ratio), int(h * ratio))
+    else:
+        p_sizes = (int(w * 1/ratio), int(h * 1/ratio))        
+
+    sizes = [p_sizes, n_sizes]
 
     # Get posi outfit description
     oid, mode = outf_id.split('_')
@@ -167,8 +181,6 @@ for idx in idxs:
         items, cates = outf
 
         for i, item_id in enumerate(items):
-            if item_id == "-1":
-                continue
             img_path = osp.join(image_dir, item_id)
             try:
                 img = image_io.load_image(
@@ -180,22 +192,16 @@ for idx in idxs:
                 continue
 
             cate = cates[i]
-            img = cv2.resize(img, new_sizes)
+            img = cv2.resize(img, sizes[idx])
             img = cv2.putText(img, cate, (50, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)            
             outf_imgs[idx].append(img)
 
     # Stack outfit images horizontally
     posi_outf = np.hstack(outf_imgs[0])
-    pih, piw, _ = posi_outf.shape
+    # pih, piw, _ = posi_outf.shape
 
     nega_outf = np.hstack(outf_imgs[1])
-    nih, niw, _ = nega_outf.shape
-
-    # Resize shoter image to have the same lenght with longer image
-    if posi_outf.shape[1] > nega_outf.shape[1]:  # resize nega to posi's width
-        nega_outf = cv2.resize(nega_outf, (piw, int(pih * piw/niw)))    
-    else:  # resize posi to nega's width
-        posi_outf = cv2.resize(posi_outf, (niw, int(nih * niw/piw)))
+    # nih, niw, _ = nega_outf.shape
 
     # Write score to outfit images
     posi_outf = cv2.putText(posi_outf, f"{bpscore[0]:.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
