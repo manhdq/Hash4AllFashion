@@ -5,7 +5,7 @@ data_param:
   image_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware  # image root
   data_set: train # data set
   data_mode: PairWise # output data format
-  nega_mode: RandomOnline # negative outfits strategy
+  nega_mode: HardOnline # negative outfits strategy
   num_workers: 2 # number of workers
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
@@ -16,6 +16,17 @@ data_param:
   cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
+
+fitb_data_param:
+  phase: "test"
+  num_cand: 4
+  data_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware # data root
+  image_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware  # image root
+  data_set: train # data set  
+  num_workers: 2 # number of workers
+  use_lmdb: true # use lmbd data
+  use_semantic: false # use sentance data
+  use_visual: true # use visual data
 
 net_param:
   name: FashionNet
@@ -35,9 +46,10 @@ net_param:
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net # manhdq
-  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt
 
 gpus: [0]
 # result_file: results/fhn_voe_11_28.npz
 result_file: results/test.npz
+result_dir: rank/top-n-voe-t3
 log_level: DEBUG
