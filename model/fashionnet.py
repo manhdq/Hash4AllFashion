@@ -314,9 +314,12 @@ class FashionNet(nn.Module):
 
         # Extract visual features
         feats =  [
-            self.features(imgs)
+            (
+                self.features(imgs)
+                 if len(imgs) != 0
+                 else imgs
+            )
             for imgs in inputs["imgs"]
-            if len(imgs) != 0
         ]
 
         scores, latents = zip(
@@ -330,9 +333,11 @@ class FashionNet(nn.Module):
                     self.encoder_v,
                 )
                 for idx, feat in enumerate(feats)
+                if len(feat) != 0
             ]
         )
         scores = tuple([s for tpl in scores for s in tpl])
+        feats = [feat for feat in feats if len(feat) != 0]
         feats = torch.cat(feats, dim=0)
         
         return scores, latents, feats
