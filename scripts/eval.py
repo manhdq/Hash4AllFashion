@@ -100,26 +100,6 @@ def evalute_accuracy(config, logger):
 
 def evalute_rank(config, logger):
     """Evaluate fashion net for NDCG an AUC."""
-
-    # def outfit_scores():
-    #     """Compute rank scores for data set."""
-    #     num_users = net.param.num_users
-    #     scores = [[] for u in range(num_users)]
-    #     binary = [[] for u in range(num_users)]
-    #     u = 0  # 1 user
-    #     for inputs in tqdm(loader, desc="Computing scores"):
-    #         inputs = utils.to_device(inputs, device)
-    #         with torch.no_grad():
-    #             if parallel:
-    #                 outputs = data_parallel(net, inputs, config.gpus)
-    #             else:
-    #                 outputs, _, _ = net.visual_output(**inputs)
-    #                 outputs = [s.tolist() for s in outputs]
-    #         # for n, score in enumerate(scores):
-    #         scores[u].append(outputs[0])
-    #         binary[u].append(outputs[1])
-    #     return scores, binary
-
     def outfit_scores():
         """Compute rank scores for data set."""
         num_users = net.param.num_users
@@ -148,20 +128,6 @@ def evalute_rank(config, logger):
     LOGGER.info("Dataset for positive tuples: %s", data_param)
     loader = get_dataloader(data_param, logger)
     loader.make_nega()
-
-    # loader.set_data_mode("PosiOnly")
-    # posi_score, posi_binary = outfit_scores()
-    # LOGGER.info("Compute scores for positive outfits, done!")
-
-    # loader.set_data_mode("NegaOnly")
-    # nega_score, nega_binary = outfit_scores()
-    # LOGGER.info("Compute scores for negative outfits, done!")
-
-    # # compute ndcg
-    # mean_ndcg, avg_ndcg = utils.metrics.NDCG(posi_score, nega_score)
-    # mean_ndcg_binary, avg_ndcg_binary = utils.metrics.NDCG(posi_binary, nega_binary)
-    # aucs, mean_auc = utils.metrics.ROC(posi_score, nega_score)
-    # aucs_binary, mean_auc_binary = utils.metrics.ROC(posi_binary, nega_binary)
 
     scores = outfit_scores()
 
@@ -233,7 +199,8 @@ def fitb(config, logger):
             if parallel:
                 _, score_b = data_parallel(net, inputs, config.gpus)
             else:
-                scores, _ = net(**inputs)
+                scores, _ = net.visual_output(**inputs)
+        scores = scores[0][1]
         # the first item is the groud-truth item
         if torch.argmax(scores).item() == 0:
             correct += 1
