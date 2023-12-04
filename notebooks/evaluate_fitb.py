@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from reproducible_code.tools import io, image_io, plot
 
 importlib.reload(io)
+importlib.reload(plot)
 
 from icecream import ic
 
@@ -142,10 +143,11 @@ border_size = 5
 
 for idx in idxs:
     scores = bscores[idx]
-    idx = np.argmax(scores)
+    max_idx = np.argmax(scores)
 
     # Get posi outfit and nega outfit from loader
     outf_id, outfs = loader.get_outfits(idx)
+    ic(outf_id)
     outf_items, outf_cates = outfs
     num_items_each = int(len(outf_items) // 4)
 
@@ -160,7 +162,7 @@ for idx in idxs:
     # Stack images of posi outfit and nega outfit vertically
     outfs = []
 
-    items_1 = outf_items[num_items_each*oi: num_items_each*(oi+1)]
+    items_1 = outf_items[0: num_items_each]
     items_2 = outf_items[num_items_each: num_items_each*2]    
     modified_cate_idx = [
         idx for idx in range(num_items_each)
@@ -213,7 +215,7 @@ for idx in idxs:
         outf_imgs = np.hstack(outf_imgs)
 
         color = (255, 0, 0)  # default red
-        if oi == idx:
+        if oi == max_idx:
             color = (0, 255, 0)  # green
 
         outf_imgs = cv2.putText(
@@ -236,7 +238,11 @@ for idx in idxs:
 
 # %%
 plot.display_multiple_images(
-    all_outfs, grid_nrows=2, titles=outf_descs, axes_pad=1.3, line_length=8
+    all_outfs, grid_nrows=2, titles=outf_descs, axes_pad=1.6, line_length=8
 )
+
+# %%
+outfit_ids = loader.dataset.outfit_ids
+[outfit_ids[idx] for idx in idxs]
 
 # %%
