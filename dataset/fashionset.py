@@ -1,5 +1,6 @@
 import logging
 import os
+import os.path as osp
 import pickle
 import lmdb
 import numpy as np
@@ -19,6 +20,9 @@ import utils.config as cfg
 from .transforms import get_img_trans
 
 from icecream import ic
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def count_pairwise(count_array: np.ndarray, num_pairwise: int):
@@ -132,6 +136,7 @@ class Datum(object):
         images = []
         for id_name in indices:
             if id_name == "-1":
+                continue
                 img = np.zeros((300, 300, 3), dtype=np.float32)  # Gray image
                 # img = Image.fromarray(img)
                 if self.transforms:
@@ -174,7 +179,7 @@ class Datum(object):
 
 class FashionDataset(Dataset):
     def __init__(
-        self, param, transforms=None, cate_selection="all", logger=None
+        self, param, transforms=None, logger=None
     ):
         self.param = param
         self.logger = logger
@@ -208,20 +213,14 @@ class FashionDataset(Dataset):
         )
 
         # After processing
+        self.cate_selection = param.cate_selection
         if cate_selection == "all":
             cate_selection = list(self.df.columns)
         else:
-            cate_selection = cate_selection + ["outfit_id", "compatible"]
+            cate_selection = param.cate_selection + ["outfit_id", "compatible"]
 
-        ##TODO: Simplify this later, Should we register this args?
-        self.cate_idxs = [cfg.CateIdx[col] for col in cate_selection[:-2]]
-        self.cate_idxs_to_tensor_idxs = {
-            cate_idx: tensor_idx
-            for tensor_idx, cate_idx in enumerate(self.cate_idxs)
-        }
-        self.tensor_idxs_to_cate_idxs = {
-            v: k for k, v in self.cate_idxs_to_tensor_idxs.items()
-        }
+        # Get cate-to-idx mapping
+        self.cate_idxs = {cate: idx for idx, cate in enumerate(self.cate_selection)}
 
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
@@ -460,7 +459,7 @@ class FashionDataset(Dataset):
             outfit_tuple = raw_tuple[raw_tuple != "-1"]
 
         outfit_cates = [
-            cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
+            self.cate_idxs[col] for col in outfit_tuple.index.to_list()
         ]
         return oid, outfit_cates, outfit_tuple.values.tolist()
 
@@ -479,11 +478,10 @@ class FashionDataset(Dataset):
         else:
             outf_s = []
 
-        ## Mapping to tensor idxs for classification training
-        posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
-        nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
+        # ## Mapping to tensor idxs for classification training
+        # posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
+        # nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
 
-        ##TODO: Dynamic options for visual and semantic selections
         posi_tpl = self.datum.get(posi_tpl)
         posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
 
@@ -509,9 +507,8 @@ class FashionDataset(Dataset):
             outf_s = []
 
         ## Mapping to tensor idxs for classification training
-        posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
+        # posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
 
-        ##TODO: Dynamic options for visual and semantic selections
         posi_tpl = self.datum.get(posi_tpl)
         posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
 
@@ -531,7 +528,7 @@ class FashionDataset(Dataset):
             outf_s = []
 
         ## Mapping to tensor idxs for classification training
-        nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
+        # nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
 
         nega_tpl = self.datum.get(nega_tpl)
         nega_v, nega_s = nega_tpl["visual"], nega_tpl["semantic"]
@@ -576,17 +573,40 @@ class FITBDataset(Dataset):
     Only test data has fitb file.
     """
 
-    def __init__(self, param, transforms=None):
+    def __init__(self, param, transforms=None, logger=None):
         self.param = param
-        image_list = read_image_list(param.image_list_fn)
+        self.logger = logger
+
+        # Select item with selected cates from df
+        self.cate_selection = param.cate_selection
+        cate_selection = param.cate_selection + ["outfit_id"]
+        self.cate_idxs = {
+            cate: idx for idx, cate in enumerate(self.cate_selection)
+        }
+        
+        self.df = pd.read_csv(param.data_csv)
+        self.df = self.get_new_data_with_new_cate_selection(
+            self.df, cate_selection
+        )        
+        self.outfit_ids = self.df["outfit_id"].tolist()
+        self.df = self.df.reset_index(drop=True).drop(
+            "outfit_id", axis=1
+        )
+
+        # Load semantic if any
+        if param.use_outfit_semantic:
+            self.outfit_semantic = load_semantic_data(param.outfit_semantic)
+        else:
+            self.outfit_semantic = None        
+
         if param.use_semantic:
             semantic = load_semantic_data(param.semantic_fn)
         else:
             semantic = None
+
+        # Get lmdb storage
         lmdb_env = open_lmdb(param.lmdb_dir) if param.use_lmdb else None
         self.datum = Datum(
-            image_list,
-            variable_length=param.variable_length,
             use_semantic=param.use_semantic,
             semantic=semantic,
             use_visual=param.use_visual,
@@ -594,10 +614,50 @@ class FITBDataset(Dataset):
             lmdb_env=lmdb_env,
             transforms=transforms,
         )
-        self.image_list = image_list
-        self.fitb = np.array(pd.read_csv(param.fitb_fn, dtype=np.int))
-        self.num_comparisons = len(self.fitb)
+
+        # Create item_list and remove -1 value
+        self.item_list = [
+            list(set(self.df.iloc[:, i]))
+            for i in range(len(self.df.columns))
+        ]
+        
+        for idx, _ in enumerate(self.item_list):
+            try:
+                self.item_list[idx].remove("-1")
+            except Exception:
+                continue
+            
+        # Load fitb data
+        if osp.exists(param.fitb_fn):
+            self.fitb = pd.read_csv(param.fitb_fn)
+            self.num_comparisons = len(self.fitb)
+        else:
+            self.fitb = self.make_fill_in_blank()
+
         self.summary()
+
+    def get_new_data_with_new_cate_selection(self, df, cate_selection):
+        df = df.copy()
+        df = df[cate_selection]
+        df_count = (
+            (df.to_numpy()[..., :-1] != "-1").astype(int).sum(axis=-1)
+        )  # last columns are outfit_id
+        return df[df_count > 1]
+
+    def get_tuple(self, df, idx, include_null=False):
+        """Return item's cate ids and item ids of the outfit"""
+        raw_tuple = df.iloc[idx]
+        oid = self.outfit_ids[idx]
+
+        if include_null:
+            outfit_tuple = raw_tuple.copy()
+        else:
+            outfit_tuple = raw_tuple[raw_tuple != "-1"]
+
+        outfit_cates = [
+            cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
+        ]
+        return oid, outfit_cates, outfit_tuple.values.tolist()    
 
     def make_fill_in_blank(self, save_fn=None, num_cand=4, fix_cate=None):
         """Make fill-in-the-blank list.
@@ -610,6 +670,7 @@ class FITBDataset(Dataset):
         """
         if save_fn is None:
             save_fn = self.param.fitb_fn
+
         if os.path.isfile(save_fn):
             LOGGER.warning(
                 "Old fill-in-the-blank file (%s) exists for %s. "
@@ -618,49 +679,52 @@ class FITBDataset(Dataset):
                 self.param.phase,
             )
             return None
-        outfits = np.array(pd.read_csv(self.param.posi_fn, dtype=np.int))
-        item_list = read_item_list(outfits[:, 0], self.param.variable_length)
+
+        # create candidate outfits
+        outfits = self.df.copy()
         cand_tpl = [outfits.copy() for _ in range(num_cand)]
         num_posi = len(outfits)
-        num_cate = len(self.param.cate_map)
+        # num_cate = len(self.param.cate_map)
+        num_cate = len(self.param.cate_selection)
 
-        # randomly select category for FITB task
-        if fix_cate:
-            assert fix_cate in range(num_cate)
-            cand_cate = np.array([fix_cate] * num_posi)
-        else:
-            if self.param.variable_length:
-                cand_cate = np.random.choice([2, 3], size=num_posi)
-            else:
-                cand_cate = np.random.choice(num_cate, size=num_posi)
-
-        # randomly select items
-        num_item = num_cand * 2
+        # randomly select items for each cate
+        num_item = num_cand * 2  # why num_cand * 2?
         cand_item = []
         for cate in range(num_cate):
             cand_item.append(
-                np.random.choice(item_list[cate], num_posi * num_item)
+                np.random.choice(self.item_list[cate], num_posi * num_item)
             )  # [num_cate, num_posi*num_item]
 
         # replace the items in outfits
-        for n in tqdm.tqdm(range(num_posi)):
-            cate = cand_cate[n]
-            cands = cand_item[cate][
-                num_item * n : num_item * (n + 1)
-            ]  # [num_item]
+        for idx in tqdm.tqdm(range(num_posi)):            
+            # Get nonempty cates of row
+            raw_tpl = self.df.iloc[idx]
+            outf_tpl = raw_tpl[raw_tpl != "-1"]
+            cates = outf_tpl.index.to_list()
+
+            # Get random cate in each candidate to fill with a random item
+            cate = np.random.choice(cates, size=1)[0]
+            cate_idx = self.cate_idxs[cate]
+            cands = cand_item[cate_idx][
+                num_item * idx : num_item * (idx + 1)
+            ]
+
             # remove the ground-truth item
             cands = list(
-                set(cands) - {outfits[n][cate + 1]}
-            )  # the original outfit df has "user" as first column
-            # replace
-            for i in range(1, num_cand):
-                cand_tpl[i][n][cate] = cands[i]
+                set(cands) - {raw_tpl[cate]}
+            )
 
-        cand_tpl = np.concatenate(cand_tpl, axis=1)
-        cols = (["user"] + self.param.cate_name) * num_cand
+            # Replace the item 
+            for i in range(1, num_cand):
+                cand_tpl[i].loc[idx, cate] = cands[i]
+
+        # cand_tpl = np.concatenate(cand_tpl, axis=1)
+        cols = (self.cate_selection) * num_cand
+        cand_tpl = pd.concat(cand_tpl, axis=1)
         df = pd.DataFrame(cand_tpl, columns=cols)
         df.to_csv(save_fn, index=False)
-        return cand_tpl
+        # return cand_tpl
+        return df
 
     def summary(self):
         LOGGER.info("Summary for fill-in-the-blank data set")
@@ -670,15 +734,33 @@ class FITBDataset(Dataset):
             utils.colour(self.param.num_cand),
         )
 
-    def __getitem__(self, index):
+    def __getitem__(self, idx):
         """Get one tuple of examples by index."""
-        n = index // self.param.num_cand
-        i = index % self.param.num_cand
-        num = len(self.param.cate_name) + 1
-        tpls = self.fitb[n]
-        tpl = tpls[num * i + 1 : num * (i + 1)]
-        uidx = tpls[num * i]
-        return self.datum.get(tpl), uidx
+        n = int(idx // self.param.num_cand)
+        i = idx % self.param.num_cand
+        num_cate = len(self.cate_selection)
+
+        # Load outfit semantic if any
+        oid = self.outfit_ids[n]
+        if self.outfit_semantic is not None:
+            outf_smt = [torch.from_numpy(self.outfit_semantic[oid])]
+        else:
+            outf_s = []
+
+        # Load outfit tuple
+        outf_tpls = self.fitb.iloc[n]
+        outf_tpl = outf_tpls.iloc[num_cate * i : num_cate * (i + 1)]
+
+        # Remove -1 and get cates
+        outf_tpl =  outf_tpl[outf_tpl != "-1"]
+        outf_tpl = self.datum.get(outf_tpl)
+        outf_v, outf_s = outf_tpl["visual"], outf_tpl["semantic"]
+
+        return {
+            "outf_s": outf_smt,
+            "imgs": outf_v,
+            "s": outf_s,
+        }
 
     def __len__(self):
         """Return the size of dataset."""
@@ -692,23 +774,23 @@ class FashionLoader(object):
         self.logger = logger
 
         self.cate_selection = param.cate_selection
-        self.cate_not_selection = [
-            cate for cate in self.cate_selection if cate not in cfg.CateName
-        ]
+        # self.cate_not_selection = [
+        #     cate for cate in self.cate_selection if cate not in cfg.CateName
+        # ]
 
         self.logger.info(
             f"Loading data ({utils.colour(param.data_set)}) in phase ({utils.colour(param.phase)})"
         )
-        self.logger.info(
-            f"- Selected apparel: "
-            + ", ".join([utils.colour(cate) for cate in self.cate_selection])
-        )
-        self.logger.info(
-            f"- Not selected apparel: "
-            + ", ".join(
-                [utils.colour(cate, "Red") for cate in self.cate_not_selection]
-            )
-        )
+        # self.logger.info(
+        #     f"- Selected apparel: "
+        #     + ", ".join([utils.colour(cate) for cate in self.cate_selection])
+        # )
+        # self.logger.info(
+        #     f"- Not selected apparel: "
+        #     + ", ".join(
+        #         [utils.colour(cate, "Red") for cate in self.cate_not_selection]
+        #     )
+        # )
         self.logger.info(
             f"- Data loader configuration: batch size ({utils.colour(param.batch_size)}), number of workers ({utils.colour(param.num_workers)})"
         )
@@ -718,7 +800,7 @@ class FashionLoader(object):
             transforms = get_img_trans(param.phase, param.image_size)
 
         self.dataset = FashionDataset(
-            param, transforms, self.cate_selection, logger
+            param, transforms, logger
         )
 
         self.loader = DataLoader(
@@ -784,6 +866,64 @@ class FashionLoader(object):
             yield data
 
 
+class FITBLoader(object):
+    """DataLoader warper FITB data."""
+
+    def __init__(self, param):
+        """Initialize a loader for FITBDataset."""
+        LOGGER = logging.getLogger(__name__)
+        LOGGER.info(
+            "Loading data (%s) in phase (%s)",
+            utils.colour(param.data_set),
+            utils.colour(param.phase),
+        )
+        LOGGER.info(
+            "Data loader configuration: batch size (%s) " "number of workers (%s)",
+            utils.colour(param.num_cand),
+            utils.colour(param.num_workers),
+        )
+        transforms = get_img_trans(param.phase, param.image_size)
+        self.dataset = FITBDataset(param, transforms)
+        self.loader = DataLoader(
+            dataset=self.dataset,
+            batch_size=param.num_cand,
+            num_workers=param.num_workers,
+            shuffle=False,
+            pin_memory=True,
+            collate_fn=outfit_fitb_collate,            
+        )
+
+    def __len__(self):
+        """Return number of batches."""
+        return len(self.loader)
+
+    @property
+    def num_batch(self):
+        """Get number of batches."""
+        return len(self.loader)
+
+    @property
+    def num_sample(self):
+        """Get number of samples."""
+        return len(self.dataset)
+
+    def __iter__(self):
+        """Return generator."""
+        for data in self.loader:
+            yield data
+
+    def get_outfits(self, index):
+        """Get pair of outfits by index"""
+        oid = self.dataset.outfit_ids[index]
+
+        outf = self.dataset.fitb.iloc[index]
+        outf = outf[outf != "-1"]
+        outf_list = outf.values.tolist()
+        cates_list = outf.index.tolist()
+
+        return oid, (outf_list, cates_list)
+
+
 def outfit_fashion_collate(batch):
     """Custom collate function for dealing with batch of fashion dataset
     Each sample will has following output from dataset:
@@ -834,39 +974,26 @@ def outfit_fashion_collate(batch):
         nega_s_out.extend(nega_s)
 
     if len(outf_s) != 0:
-        # batch_dict["outf_s"].append(torch.cat(outf_s_out, 0))
         outf_s_out = torch.cat(outf_s_out, 0)
 
+    # Posi
     if len(posi_imgs_out) != 0:
-        # batch_dict["imgs"].append(torch.stack(posi_imgs_out, 0).squeeze())
-        # batch_dict["idxs"].append(
-        #     torch.Tensor(posi_mask).to(torch.long),
-        #     torch.Tensor(posi_cates_out).to(torch.long),
-        # )
         posi_imgs_out = torch.stack(posi_imgs_out, 0).squeeze()
+
+    if len(posi_mask) != 0:
         posi_mask = torch.Tensor(posi_mask).to(torch.long)
         posi_cates_out = torch.Tensor(posi_cates_out).to(torch.long)
+        
+    if len(posi_s_out) != 0:
+        posi_s_out = torch.cat(posi_s_out, 0)
 
+    # Nega
     if len(nega_imgs_out) != 0:
-        # batch_dict["imgs"].append(torch.stack(nega_imgs_out, 0).squeeze())
-        # batch_dict["idxs"].append(
-        #     (
-        #         torch.Tensor(nega_mask).to(torch.long),
-        #         torch.Tensor(nega_cates_out).to(torch.long),
-        #     )
-        # )
         nega_imgs_out = torch.stack(nega_imgs_out, 0).squeeze()
+
+    if len(nega_mask) != 0:
         nega_mask = torch.Tensor(nega_mask).to(torch.long)
         nega_cates_out = torch.Tensor(nega_cates_out).to(torch.long)
-
-    if len(posi_s_out) != 0:
-        # batch_dict["s"].append(
-        #     (
-        #         torch.cat(posi_s_out, 0)
-        #         torch.cat(nega_s_out, 0)
-        #     )
-        # )
-        posi_s_out = torch.cat(posi_s_out, 0)
 
     if len(nega_s_out) != 0:
         nega_s_out = torch.cat(nega_s_out, 0)
@@ -884,6 +1011,64 @@ def outfit_fashion_collate(batch):
     return batch_dict
 
 
+def outfit_fitb_collate(batch):
+    """Custom collate function for dealing with batch of fashion dataset
+    Each sample will has following output from dataset:
+        ((`posi_cates`, `posi_imgs`), (`nega_cates`, `nega_imgs`))
+        ----------
+        - Examples
+            `outf_s`: [(1, 512]), (1, 512), (1, 512)]
+            `imgs`: [()]
+        ----------
+
+    Outputs:
+        ##TODO: Describe later
+    --------
+    """
+    batch_dict = dict()
+
+    (
+        outf_s_out,
+        mask,
+        imgs_out,
+        s_out,
+    ) = ([], [], [], [])
+
+    for i, sample in enumerate(batch):
+        outf_s = sample["outf_s"]
+        imgs = sample["imgs"]
+        s = sample["s"]
+
+        outf_s_out.extend(outf_s)
+        mask.extend([i] * len(imgs))
+        imgs_out.extend(imgs)
+        s_out.extend(s)
+
+    if len(outf_s) != 0:
+        outf_s_out = torch.cat(outf_s_out, 0)
+
+    if len(mask) != 0:
+        mask = torch.Tensor(mask).to(torch.long)
+
+    if len(imgs_out) != 0:
+        imgs_out = torch.stack(imgs_out, 0).squeeze()
+
+    if len(s_out) != 0:
+        s_out = torch.cat(s_out, 0)
+
+    batch_dict["outf_s"] = outf_s_out
+
+    batch_dict["cates"] = ((), ())
+
+    batch_dict["mask"] = (mask, ())
+
+    batch_dict["imgs"] = (imgs_out, ())
+
+    batch_dict["s"] = (s_out, ())
+
+    return batch_dict
+
+
 # --------------------------
 # Loader and Dataset Factory
 # --------------------------
@@ -891,6 +1076,8 @@ def outfit_fashion_collate(batch):
 
 def get_dataloader(param, logger):
     name = param.__class__.__name__
-    if name == "DataParam":
+    if name == "FITBDataParam":
+        return FITBLoader(param)    
+    elif name == "DataParam":
         return FashionLoader(param, logger)
     return None
