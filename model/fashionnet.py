@@ -238,6 +238,24 @@ class FashionNet(nn.Module):
             else:
                 self.encoder_t.set_scale(value)
 
+    def sign(self, x):
+        """Return hash code of x.
+
+        if x is {1, -1} binary, then h(x) = sign(x)
+        if x is {1, 0} binary, then h(x) = (sign(x - 0.5) + 1)/2
+        """
+        if self.param.binary01:
+            return ((x.detach() - 0.5).sign() + 1) / 2.0
+        return x.detach().sign()
+
+    def latent_code(self, feat, idxs, encoder):
+        """Return latent codes."""
+        ##TODO: Code for multi-encoder
+        ##TODO: idxs [2, 0, 3, 2, 4, 1]?? Code later
+        latent_code = encoder(feat)
+        # shaoe: N x D
+        return latent_code
+
     def scores(self, olatent, ilatents, mask, scale=10.0):
         scores = []
         mask_idxs = torch.unique(mask).tolist()
@@ -268,27 +286,10 @@ class FashionNet(nn.Module):
             ##TODO: Code for user score
             score = (score_i + score_o) * (scale * 2.0)
             scores.append(score)
+
         # Stack the scores, shape N x 1
         scores = torch.stack(scores, dim=0).view(-1, 1)
         return scores
-
-    def sign(self, x):
-        """Return hash code of x.
-
-        if x is {1, -1} binary, then h(x) = sign(x)
-        if x is {1, 0} binary, then h(x) = (sign(x - 0.5) + 1)/2
-        """
-        if self.param.binary01:
-            return ((x.detach() - 0.5).sign() + 1) / 2.0
-        return x.detach().sign()
-
-    def latent_code(self, feat, idxs, encoder):
-        """Return latent codes."""
-        ##TODO: Code for multi-encoder
-        ##TODO: idxs [2, 0, 3, 2, 4, 1]?? Code later
-        latent_code = encoder(feat)
-        # shaoe: N x D
-        return latent_code
 
     ##TODO: Modify for not `shared weight` option, add user for very later
 
@@ -311,9 +312,11 @@ class FashionNet(nn.Module):
         lco, bco = self.outfit_semantic_latent(outf_s)
 
         # Extract visual features
+        pair_imgs = inputs["imgs"]
+
         feats = [
             (self.features(imgs) if len(imgs) != 0 else imgs)
-            for imgs in inputs["imgs"]
+            for imgs in pair_imgs
         ]
 
         scores, latents = zip(
@@ -330,7 +333,8 @@ class FashionNet(nn.Module):
                 if len(feat) != 0
             ]
         )
-        scores = tuple([s for tpl in scores for s in tpl])
+        
+        # scores = tuple([s for tpl in scores for s in tpl])
         feats = [feat for feat in feats if len(feat) != 0]
         feats = torch.cat(feats, dim=0)
 
