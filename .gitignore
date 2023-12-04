@@ -13,3 +13,4 @@ test_code/*
 
 !test_code/model_forward.py
 !test_code/evaluate_rank.py
+!test_code/evaluate_fitb.py
