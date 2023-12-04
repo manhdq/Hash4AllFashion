@@ -10,6 +10,7 @@ TODO.txt
 checkpoints/
 reproducible_code/
 notebooks/*
+results/
 
 !notebooks/model_forward.py
 !notebooks/evaluate_rank.py
