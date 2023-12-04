@@ -27,7 +27,9 @@ fitb_data_param:
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
-
+  use_outfit_semantic: true # whether to use outfit semantic
+  cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
+  
 net_param:
   name: FashionNet
   num_users: 1 # number of users ##TODO: Later
