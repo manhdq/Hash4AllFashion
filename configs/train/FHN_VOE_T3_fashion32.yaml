@@ -10,14 +10,14 @@ data_param:
   use_visual: true # use visual data
   use_outfit_semantic: true # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
-  transforms: true
+  transforms: false
   cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
 
 train_data_param:
   shuffle: true # do shuffle
-  data_mode: PairWise # output data format
+  data_mode: PairWiseIncludeNull # output data format
   phase: train # split
 
 test_data_param:
