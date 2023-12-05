@@ -160,6 +160,9 @@ class DataParam(_Param):
         ]
         self.logger = logging.getLogger(self.__class__.__name__)
 
+        if self.use_outfit_semantic:
+            self.logger.info(utils.colour("Using outfit semantics"))
+
         self.logger.info(
             f"- Selected apparel: "
             + ", ".join([utils.colour(cate) for cate in self.cate_selection])
