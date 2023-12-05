@@ -214,7 +214,7 @@ class FashionDataset(Dataset):
 
         # After processing
         self.cate_selection = param.cate_selection
-        if cate_selection == "all":
+        if self.cate_selection == "all":
             cate_selection = list(self.df.columns)
         else:
             cate_selection = param.cate_selection + ["outfit_id", "compatible"]
