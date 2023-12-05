@@ -136,17 +136,22 @@ class Datum(object):
         images = []
         for id_name in indices:
             if id_name == "-1":
-                continue
                 img = np.zeros((300, 300, 3), dtype=np.float32)  # Gray image
                 # img = Image.fromarray(img)
                 if self.transforms:
                     img = self.transforms(image=img)["image"]
+                else:
+                    img = torch.from_numpy(
+                        cv2.resize(img, (224, 224))
+                    )
             else:
                 img = self.load_image(id_name)
                 if self.transforms:
                     img = self.transforms(image=img)["image"]
                 else:
-                    img = torch.from_numpy(img)
+                    img = torch.from_numpy(
+                        cv2.resize(img, (224, 224))
+                    )
             images.append(img)
         return images
 
@@ -490,6 +495,36 @@ class FashionDataset(Dataset):
             "nega_tpl": (nega_cates, nega_v, nega_s),
         }
 
+    def _PairWiseIncludeNull(self, index):
+        """Get a pair of outfits."""
+        posi_oid, posi_cates, posi_tpl = self.get_tuple(
+            self.posi_df, int(index // self.ratio),
+            include_null=True
+        )
+        nega_oid, nega_cates, nega_tpl = self.get_tuple(
+            self.nega_df, index, include_null=True
+        )
+
+        assert posi_oid == nega_oid
+
+        # Get semantic embedding of outfits
+        if self.outfit_semantic is not None:
+            outf_s = [torch.from_numpy(self.outfit_semantic[posi_oid])]
+        else:
+            outf_s = []
+
+        posi_tpl = self.datum.get(posi_tpl)
+        posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
+
+        nega_tpl = self.datum.get(nega_tpl)
+        nega_v, nega_s = nega_tpl["visual"], nega_tpl["semantic"]
+
+        return {
+            "outf_s": outf_s,
+            "posi_tpl": (posi_cates, posi_v, posi_s),
+            "nega_tpl": (nega_cates, nega_v, nega_s),
+        }        
+
     def _PosiOnly(self, index):
         """Get single outfit."""
         posi_oid, posi_cates, posi_tpl = self.get_tuple(
@@ -539,6 +574,7 @@ class FashionDataset(Dataset):
         """Get one tuple of examples by index."""
         return dict(
             PairWise=self._PairWise,
+            PairWiseIncludeNull=self._PairWiseIncludeNull,
             PosiOnly=self._PosiOnly,
             NegaOnly=self._NegaOnly,
         )[self.param.data_mode](index)
@@ -547,6 +583,7 @@ class FashionDataset(Dataset):
         """Return the size of dataset."""
         return dict(
             PairWise=int(self.ratio * self.num_posi),
+            PairWiseIncludeNull=int(self.ratio * self.num_posi),        
             PosiOnly=self.num_posi,  # all positive tuples
             NegaOnly=int(self.ratio * self.num_posi),  # all negative tuples
         )[self.param.data_mode]
