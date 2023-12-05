@@ -334,7 +334,7 @@ class FashionNet(nn.Module):
             ]
         )
         
-        # scores = tuple([s for tpl in scores for s in tpl])
+        scores = tuple([s for tpl in scores for s in tpl])
         feats = [feat for feat in feats if len(feat) != 0]
         feats = torch.cat(feats, dim=0)
 
