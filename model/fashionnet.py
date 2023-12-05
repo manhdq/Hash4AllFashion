@@ -148,8 +148,7 @@ class FashionNet(nn.Module):
             )
         else:
             # Single weighed hashing for user-item or item-item, current only use for item
-            ##TODO: Code this for very later
-            self.core = M.CoreMat(param.dim)
+            self.core = M.CoreMat(param.dim, param.pairwise_weight)
 
         if self.param.use_semantic and self.param.use_visual:
             self.loss_weight = dict(
@@ -256,14 +255,18 @@ class FashionNet(nn.Module):
         # shaoe: N x D
         return latent_code
 
-    def scores(self, olatent, ilatents, mask, scale=10.0):
+    def scores(self, olatents, ilatents, mask, scale=10.0):
         scores = []
         mask_idxs = torch.unique(mask).tolist()
 
         for idx in mask_idxs:
             # Get all feature vectors of a batch
-            sub_olatent = olatent[idx]
             sub_ilatents = ilatents[mask == idx]
+
+            semwise = 0
+            if len(olatents) != 0:
+                sub_olatent = olatents[idx]
+                semwise = sub_ilatents * sub_olatent
 
             size = len(sub_ilatents)
             indx, indy = np.triu_indices(size, k=1)
@@ -271,9 +274,9 @@ class FashionNet(nn.Module):
             # comb x D
             ##TODO: Rename
             pairwise = sub_ilatents[indx] * sub_ilatents[indy]
-            semwise = sub_ilatents * sub_olatent
 
             # Get score
+            score_i, score_o = 0, 0
             if self.param.hash_types == utils.param.WEIGHTED_HASH_I:
                 score_i = self.core(pairwise).mean()
             elif self.param.hash_types == utils.param.WEIGHTED_HASH_BOTH:
@@ -309,7 +312,10 @@ class FashionNet(nn.Module):
 
     def visual_output(self, **inputs):
         outf_s = inputs["outf_s"]
-        lco, bco = self.outfit_semantic_latent(outf_s)
+
+        lco, bco = [], []
+        if len(outf_s) != 0:
+            lco, bco = self.outfit_semantic_latent(outf_s)
 
         # Extract visual features
         pair_imgs = inputs["imgs"]
