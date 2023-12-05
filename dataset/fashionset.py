@@ -478,10 +478,6 @@ class FashionDataset(Dataset):
         else:
             outf_s = []
 
-        # ## Mapping to tensor idxs for classification training
-        # posi_cates = list(map(self.cate_idxs_to_tensor_idxs.get, posi_cates))
-        # nega_cates = list(map(self.cate_idxs_to_tensor_idxs.get, nega_cates))
-
         posi_tpl = self.datum.get(posi_tpl)
         posi_v, posi_s = posi_tpl["visual"], posi_tpl["semantic"]
 
