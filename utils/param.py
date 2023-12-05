@@ -505,8 +505,6 @@ class FashionTrainParam(_Param):
         test_data_param=None,
         net_param=None,
         solver_param=None,
-        use_outfit_semantic=False,
-        use_visual_embedding=False,
         log_file=None,  # log file
         log_level=None,  # log level
         result_file=None,  # file to save metric
