@@ -9,9 +9,6 @@ TODO.txt
 .pyc
 checkpoints/
 reproducible_code/
-notebooks/*
+notebooks/theme-aware-dataset/colour_classify/*
+notebooks/theme-aware-dataset/past/*
 results/
-
-!notebooks/model_forward.py
-!notebooks/evaluate_rank.py
-!notebooks/evaluate_fitb.py
