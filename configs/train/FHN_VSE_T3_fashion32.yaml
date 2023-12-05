@@ -8,7 +8,7 @@ data_param:
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
-  use_outfit_semantic: true # whether to use outfit semantic
+  use_outfit_semantic: false # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   transforms: true
   cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
@@ -32,11 +32,11 @@ net_param:
   outfit_semantic_dim: 512 # dimension of outfit semantic vector
   visual_embedding_dim: 512 # dimension of image embedding vector  
   backbone: alexnet # backbone for feature extractor
-  hash_types: 3 # type of hash codes, current only use for item
+  hash_types: 2 # type of hash codes, current only use for item
   scale_tanh: true # use scale tanh
   use_semantic: false # use semantic features
   use_visual: true # user visdual features
-  use_outfit_semantic: true # whether to use outfit semantic
+  use_outfit_semantic: false # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   margin: 0.1 # margin for vse-loss, if exists
   shared_weight_network: true
@@ -68,21 +68,19 @@ solver_param:
     lr:
       features: 0.01
       encoder_v: 0.001
-      encoder_o: 0.001      
+      # encoder_o: 0.001      
       classifier_v: 0.001
       core: 0.01
     weight_decay:
       features: 1.0e-05
       encoder_v: 1.0e-05
-      encoder_o: 1.0e-05      
+      # encoder_o: 1.0e-05      
       classifier_v: 1.0e-05
       core: 1.0e-05
     grad_param: { momentum: 0.9 } # setting for SGD
     lr_scheduler: ReduceLROnPlateau
     scheduler_param:
       { cooldown: 10, factor: 0.5, patience: 10, threshold: 0.05 }
-
-
 
 log_file: logs/train/fashion_hash_net_t3_outfitFashion_outfitSemantic.log
 log_level: DEBUG
