@@ -89,12 +89,6 @@ net.eval()
 scores, _, _ = net.visual_output(**inputs)
 len(scores)
 
-# %%
-torch.argmax(scores[0][0])
-
-# %%
-scores[0][1].tolist()
-
 # %% [markdown]
 # ### Calculate FITB score
 pbar = tqdm(loader, desc="Computing scores")
@@ -106,7 +100,7 @@ for inputs in pbar:
     inputs = utils.to_device(inputs, device)
     with torch.no_grad():
         scores, _, _ = net.visual_output(**inputs)
-    scores = scores[0][1]
+    scores = scores[1]
     bscores.append(scores.tolist())
     # the first item is the groud-truth item
     if torch.argmax(scores).item() == 0:
