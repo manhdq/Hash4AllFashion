@@ -11,6 +11,7 @@ from utils.logger import Logger, config_log
 from dataset import fashionset
 from dataset.transforms import get_img_trans
 from model import fashionnet
+import torchshow as ts
 
 importlib.reload(fashionset)
 importlib.reload(fashionnet)
@@ -18,54 +19,91 @@ importlib.reload(fashionnet)
 import matplotlib.pyplot as plt
 
 # %%
-cfg_file = "../configs/train/FHN_VSE_T3_visual_new.yaml"
+cfg_file = "../configs/train/FHN_VOE_T3_fashion32.yaml"
 with open(cfg_file, "r") as f:
     kwargs = yaml.load(f, Loader=yaml.FullLoader)
 
 # %%
+kwargs
+
+# %%
 config = FashionTrainParam(**kwargs)
 config.add_timestamp()
+param = config.train_data_param
 
 logger = logging.getLogger("fashion32")
 logger.info(f"Fashion param : {config}")
 
 # %% [markdown]
-# ### Load dataset
-param = config.train_data_param
-cate_selection = param.cate_selection
+# Test 2 dataparams
+data_param = config.data_param
+train_data_param = config.train_data_param
+val_data_param = config.test_data_param
 
 # %%
-print(config.net_param.load_trained)
+train_param = train_data_param or data_param
+print(train_param.phase)
+print(train_param)
+print(train_param.default)
+
+# %%
+val_param = val_data_param or data_param
+print(val_param.phase)
+print(val_param)
+print(val_param.default)
+
+# # %%
+# a = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+# b = {'a': 3, 'b': 4, 'c': 5}
+# a or b
+# b or a
+
+# # %%
+# # a.update(b)
+# # a
+# b.update(a)
+# b
+
+# %% [markdown]
+# ### Load dataset
 
 # %%
 transforms = get_img_trans(param.phase, param.image_size)
+print(transforms)
 dataset = fashionset.FashionDataset(param, transforms, logger)
 
-# %%
-dataset.posi_df.head()
-dataset.nega_df.head()
+# # %%
+# dataset.posi_df.head()
+# dataset.nega_df.head()
 
 # # %%
 # image = dataset.datum.load_image("10269_9708_31264127289.jpg")
 # image = dataset.datum.load_image("11436_9728_30492806793.jpg")
 # plt.imshow(image)
 
+# %%
+param.transforms
+
 # %% [markdown]
 # ### Load dataloader
-loader = fashionset.get_dataloader(param, logger)
-loader.set_data_mode("PosiOnly")
-loader.set_data_mode("NegaOnly")
+loader = fashionset.get_dataloader(train_param, logger)
+# loader.set_data_mode("PosiOnly")
+# loader.set_data_mode("NegaOnly")
 
 # %%
 inputs = next(iter(loader))
 inputs = to_device(inputs, "cuda")
 inputs
 
-# %%
-inputs["nega_tpls"][1]
+# %% [markdown]
+# display some input images
+imgs = inputs["imgs"][0]
+print(imgs.shape)
+ts.show(imgs)
 
 # %% [markdown]
 # ### Load model
+print(config.net_param.load_trained)
 net = fashionnet.get_net(config, logger)
 
 # %% [markdown]
@@ -100,29 +138,3 @@ for name, param in pretrained_state_dict.items():
         print(name)
         param = param.data
         state_dict[name].copy_(param)
-
-# # %%
-# path = "encoder_o.pth"
-# torch.save(net.encoder_o.state_dict(), path)
-# encoder_o = net.encoder_o.copy()
-# encoder_o.load_state_dict(torch.load(path))
-
-# # %%
-# flag = True
-# for p1, p2 in zip(net.encoder_o.parameters(), encoder_o.parameters()):
-#     if p1.data.ne(p2.data).sum() > 0:
-#         flag = False
-#         break
-# flag
-
-# %%
-net.num_groups
-
-# %%
-net.classifier_v
-
-# %%
-tensorl = [torch.randn(1, 512) for _ in range(4)]
-torch.stack(tensorl, dim=0).shape
-
-# %%
