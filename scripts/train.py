@@ -13,7 +13,7 @@ from utils.param import FashionTrainParam
 from utils.logger import get_logger
 import utils.config as cfg
 from dataset.fashionset import FashionLoader
-from model import FashionNet, get_net
+from model.fashionnet import FashionNet, get_net
 from solver import FashionNetSolver
 
 from icecream import ic
