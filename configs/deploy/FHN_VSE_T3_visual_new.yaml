@@ -8,11 +8,11 @@ data_param:
   use_lmdb: true # use lmbd data
   use_semantic: false # use sentance data
   use_visual: true # use visual data
-  use_outfit_semantic: true # whether to use outfit semantic
+  use_outfit_semantic: false # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   transforms: true
-  # cate_selection: [top, bottom, outerwear, bag, footwear]
-  cate_selection: [full-body, top, bottom, outerwear, bag, footwear, accessory]
+  cate_selection: [top, bottom, outerwear, bag, footwear]
+  # cate_selection: [full-body, top, bottom, outerwear, bag, footwear, accessory]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
 
@@ -33,28 +33,23 @@ net_param:
   outfit_semantic_dim: 512 # dimension of outfit semantic vector
   visual_embedding_dim: 512 # dimension of image embedding vector  
   backbone: alexnet # backbone for feature extractor
-  hash_types: 3 # type of hash codes, current only use for item
+  hash_types: 2 # type of hash codes, current only use for item
   scale_tanh: true # use scale tanh
   use_semantic: false # use semantic features
   use_visual: true # user visdual features
-  use_outfit_semantic: true # whether to use outfit semantic
+  use_outfit_semantic: false # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   margin: 0.1 # margin for vse-loss, if exists
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net
-  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net  
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt
-  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/11_28_23/fhn_t3_osem_pretrained_best_11_28.pt
-  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/fhn_t3_osem_pretrained_allCate_best_11_28.pt
-  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion/checkpoints/11_29_23/fhn_osem_allCate_11_29_best.pt
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/fashion_hash_net_t3_allFashion_noSemantic_best.net
 
 gpus: [0]
 
 ## Deploy options
-hash_storage: storages/hash_apparels_11_26.pkl
-# hash_storage: storages/hanger_apparels_100.pkl
+hash_storage: storages/hanger_apparels_old.pkl
 score_type_selection: "binary"
 # score_type_selection: "latent"
 feature_type_selection: "visual"
