@@ -14,11 +14,6 @@ data_dir = "/home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware"
 image_dir = osp.join(data_dir, "images")
 
 # %%
-train_outfit_items = io.load_csv(
-    osp.join(data_dir, "train", "train.csv")
-)
-
-# %%
 df_outfit_items = io.load_csv(
     osp.join(data_dir, "important", "clean_theme_outfit_items_v3.csv")
 )
@@ -71,7 +66,7 @@ valid_df, test_df = val_df.iloc[:num_val], val_df.iloc[num_val:]
 len(valid_df), len(test_df)
 
 # %%
-train_dir = osp.join(data_dir, "train")
+train_dir = osp.join(data_dir, "train_vse")
 io.create_dir(train_dir, False)
 io.save_csv(
     train_df,
