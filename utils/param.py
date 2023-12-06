@@ -157,21 +157,21 @@ class DataParam(_Param):
         self.cate_not_selection = [
             cate for cate in self.cate_selection if cate not in cfg.CateName
         ]
-        self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger = logging.getLogger(self.__class__.__name__)
 
-        if self.use_outfit_semantic:
-            self.logger.info(utils.colour("Using outfit semantics"))
+        # if self.use_outfit_semantic:
+        #     self.logger.info(utils.colour("Using outfit semantics"))
 
-        self.logger.info(
-            f"- Selected apparel: "
-            + ", ".join([utils.colour(cate) for cate in self.cate_selection])
-        )
-        self.logger.info(
-            f"- Not selected apparel: "
-            + ", ".join(
-                [utils.colour(cate, "Red") for cate in self.cate_not_selection]
-            )
-        )
+        # self.logger.info(
+        #     f"- Selected apparel: "
+        #     + ", ".join([utils.colour(cate) for cate in self.cate_selection])
+        # )
+        # self.logger.info(
+        #     f"- Not selected apparel: "
+        #     + ", ".join(
+        #         [utils.colour(cate, "Red") for cate in self.cate_not_selection]
+        #     )
+        # )
         
         self.cat2id = cfg.CateIdx
         self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
@@ -280,17 +280,17 @@ class FITBDataParam(_Param):
             cate for cate in self.cate_selection if cate not in cfg.CateName
         ]
 
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.info(
-            f"- Selected apparel: "
-            + ", ".join([utils.colour(cate) for cate in self.cate_selection])
-        )
-        self.logger.info(
-            f"- Not selected apparel: "
-            + ", ".join(
-                [utils.colour(cate, "Red") for cate in self.cate_not_selection]
-            )
-        )        
+        # self.logger = logging.getLogger(self.__class__.__name__)
+        # self.logger.info(
+        #     f"- Selected apparel: "
+        #     + ", ".join([utils.colour(cate) for cate in self.cate_selection])
+        # )
+        # self.logger.info(
+        #     f"- Not selected apparel: "
+        #     + ", ".join(
+        #         [utils.colour(cate, "Red") for cate in self.cate_not_selection]
+        #     )
+        # )        
 
     @property
     def fitb_fn(self):
