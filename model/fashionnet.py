@@ -1,6 +1,7 @@
 import threading
 import numpy as np
 from functools import partial
+from collections import defaultdict
 
 import torch
 import torch.nn as nn
@@ -416,7 +417,7 @@ class FashionNet(nn.Module):
 
         feats_dict["visual_fc"] = self.classifier_v(feats)
 
-        if self.use_visual:
+        if self.param.use_visual:
             lcis_v = self.encoder_v(feats)
             bcis_v = self.sign(lcis_v)
             feats_dict["lcis_v"] = lcis_v
