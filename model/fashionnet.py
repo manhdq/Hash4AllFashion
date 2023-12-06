@@ -31,7 +31,7 @@ class RankMetric(threading.Thread):
         self.num_users = num_users
         self._scores = [
             [[] for _ in range(self.num_users)] for _ in range(4)
-        ]  ##TODO: What is 4?
+        ]  # [num_scores, num_users]
 
     def reset(self):
         self._scores = [[[] for _ in range(self.num_users)] for _ in range(4)]
@@ -56,7 +56,7 @@ class RankMetric(threading.Thread):
             self.process(data)
 
     def rank(self):
-        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])
+        auc = utils.metrics.calc_AUC(self._scores[0], self._scores[1])  # [U, B]
         binary_auc = utils.metrics.calc_AUC(self._scores[2], self._scores[3])
         ndcg = utils.metrics.calc_NDCG(self._scores[0], self._scores[1])
         binary_ndcg = utils.metrics.calc_NDCG(self._scores[2], self._scores[3])
@@ -68,10 +68,11 @@ class RankMetric(threading.Thread):
 class FashionNet(nn.Module):
     """Base class for fashion net."""
 
-    def __init__(self, param, cate_selection):
+    def __init__(self, param, logger, cate_selection):
         """See NetParam for details."""
         super().__init__()
         self.param = param
+        self.logger = logger
         self.scale = 1.0
         self.shared_weight = param.shared_weight_network
 
