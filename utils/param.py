@@ -13,9 +13,6 @@ WEIGHTED_HASH_U = 1
 WEIGHTED_HASH_I = 2
 WEIGHTED_HASH_BOTH = 3
 
-##TODO: Modify this
-_VAR_LENGTH_DATA = ["tuples_519", "tuples_32"]
-
 
 def format_display(opt, num=1):
     """Show hierarchal information for _Param class."""
@@ -132,6 +129,7 @@ class DataParam(_Param):
         num_workers=8,  # number of workers for dataloader
         shuffle=None,
         fsl=None,
+        cate_selection=None,
         transforms=True,
         num_pairwise=None,
         using_max_num_pairwise=True,
@@ -156,6 +154,25 @@ class DataParam(_Param):
             self.data_set += "_fsl"
         self.image_root = self.image_root or self.data_root
 
+        self.cate_not_selection = [
+            cate for cate in self.cate_selection if cate not in cfg.CateName
+        ]
+        self.logger = logging.getLogger(self.__class__.__name__)
+
+        if self.use_outfit_semantic:
+            self.logger.info(utils.colour("Using outfit semantics"))
+
+        self.logger.info(
+            f"- Selected apparel: "
+            + ", ".join([utils.colour(cate) for cate in self.cate_selection])
+        )
+        self.logger.info(
+            f"- Not selected apparel: "
+            + ", ".join(
+                [utils.colour(cate, "Red") for cate in self.cate_not_selection]
+            )
+        )
+        
         self.cat2id = cfg.CateIdx
         self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
 
@@ -193,7 +210,7 @@ class DataParam(_Param):
     @property
     def visual_embedding(self):
         return os.path.join(self.data_root, "visual_embedding.pkl")
-    
+
     def image_list_fn(self):
         ##TODO: Delete this
         return None
@@ -229,6 +246,102 @@ class DataParam(_Param):
         return False
 
 
+# TODO: Check FITBDataParam
+class FITBDataParam(_Param):
+    default = dict(
+        phase="test",
+        data_set="tuples_630",  # Polyvore-U dataset
+        data_root="data/polyvore",  # data root
+        list_fmt="image_list_{}",
+        use_semantic=False,
+        use_visual=True,
+        use_outfit_semantic=False,
+        image_root=None,  # image root if it's saved in another place
+        saliency_image=False,  # whether to use saliency image
+        image_size=291,
+        use_lmdb=True,  # whether to use lmdb data
+        cate_selection=None,
+        num_workers=8,  # number of workers for dataloader
+        num_cand=4,  # number of candidates, which equals to batch size
+    )
+    infer = [
+        "data_dir",
+        "image_list_fn",
+        "image_dir",
+        "posi_fn",
+        "fitb_fn",
+        "semantic_fn",
+    ]
+
+    def setup(self):
+        self.image_root = self.image_root or self.data_root
+
+        self.cate_not_selection = [
+            cate for cate in self.cate_selection if cate not in cfg.CateName
+        ]
+
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info(
+            f"- Selected apparel: "
+            + ", ".join([utils.colour(cate) for cate in self.cate_selection])
+        )
+        self.logger.info(
+            f"- Not selected apparel: "
+            + ", ".join(
+                [utils.colour(cate, "Red") for cate in self.cate_not_selection]
+            )
+        )        
+
+    @property
+    def fitb_fn(self):
+        fn = os.path.join(self.data_dir, "fill_in_blank_{}".format(self.phase))
+        return fn
+
+    @property
+    def image_dir(self):
+        # if self.saliency_image:
+        #     folder = "saliency"
+        # else:
+        #     folder = "291x291"
+        return os.path.join(self.image_root, "images")
+
+    @property
+    def lmdb_dir(self):
+        return os.path.join(self.image_root, "images_lmdb")
+
+    @property
+    def data_dir(self):
+        return os.path.join(self.data_root, self.data_set)
+
+    @property
+    def data_csv(self):
+        return os.path.join(self.data_root, self.data_set, f"{self.phase}.csv")
+    
+    @property
+    def outfit_semantic(self):
+        return os.path.join(self.data_root, "outfit_semantic.pkl")
+
+    @property
+    def semantic_fn(self):
+        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")    
+
+    @property
+    def image_list_fn(self):
+        return [
+            os.path.join(self.data_dir, self.list_fmt.format(p))
+            for p in cfg.CateName
+        ]
+
+    @property
+    def posi_fmt(self):
+        """Infer the file format for positive tuples"""
+        return "tuples_{}_posi"
+
+    @property
+    def posi_fn(self):
+        return os.path.join(self.data_dir, self.posi_fmt.format(self.phase))
+
+
 # TODO: Check NetParam
 class NetParam(_Param):
     """Parameters class for net."""
@@ -239,7 +352,7 @@ class NetParam(_Param):
         num_users=630,
         dim=128,
         outfit_semantic_dim=512,
-        visual_embedding_dim=512,        
+        visual_embedding_dim=512,
         single=False,
         binary01=False,
         triplet=False,
@@ -252,14 +365,14 @@ class NetParam(_Param):
         use_semantic=False,
         use_visual=False,
         use_outfit_semantic=False,
-        use_visual_embedding=False,        
+        use_visual_embedding=False,
         hash_types=0,
         margin=None,
         debug=False,
         shared_weight_network=False,
         pairwise_weight=1.0,
         outfit_semantic_weight=1.0,
-        load_trained=None, # pretrained weight
+        load_trained=None,  # pretrained weight
     )
 
     def setup(self):
@@ -391,8 +504,6 @@ class FashionTrainParam(_Param):
         test_data_param=None,
         net_param=None,
         solver_param=None,
-        use_outfit_semantic=False,
-        use_visual_embedding=False,
         log_file=None,  # log file
         log_level=None,  # log level
         result_file=None,  # file to save metric
@@ -415,15 +526,11 @@ class FashionTrainParam(_Param):
             test_param.update(param)
             self.train_data_param = DataParam(**train_param)
             self.test_data_param = DataParam(**test_param)
-            self.data_param = None
-
-        ##TODO: Remove redundancy
-        if self.data_param:
-            param = self.data_param
             self.data_param = DataParam(**param)
 
         if self.net_param:
             self.net_param = NetParam(**self.net_param)
+
         if self.solver_param:
             self.solver_param = SolverParam(**self.solver_param)
             self.gpus = self.solver_param.gpus
