@@ -69,11 +69,10 @@ class RankMetric(threading.Thread):
 class FashionNet(nn.Module):
     """Base class for fashion net."""
 
-    def __init__(self, param, logger, cate_selection):
+    def __init__(self, param, cate_selection):
         """See NetParam for details."""
         super().__init__()
         self.param = param
-        self.logger = logger
         self.scale = 1.0
         self.shared_weight = param.shared_weight_network
 
@@ -467,7 +466,7 @@ def get_net(config, logger, debug=False):
     logger.info(net_param)
 
     # Dimension of latent codes
-    net = FashionNet(net_param, logger, data_param.cate_selection)
+    net = FashionNet(net_param, data_param.cate_selection)
     state_dict = net.state_dict()
     load_trained = net_param.load_trained
 
