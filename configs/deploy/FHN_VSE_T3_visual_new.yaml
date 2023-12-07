@@ -44,12 +44,12 @@ net_param:
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/fashion_hash_net_t3_allFashion_noSemantic_best.net
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/fashion_hash_net_t3_allFashion_noSemantic_best.net 
 
 gpus: [0]
 
 ## Deploy options
-hash_storage: storages/hanger_apparels_old.pkl
+hash_storage: storages/hash_apparels_old_classify.pkl
 score_type_selection: "binary"
 # score_type_selection: "latent"
 feature_type_selection: "visual"
