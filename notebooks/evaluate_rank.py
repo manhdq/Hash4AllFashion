@@ -51,7 +51,7 @@ cate_selection = param.cate_selection
 
 # %%
 transforms = get_img_trans(param.phase, param.image_size)
-dataset = fashionset.FashionDataset(param, transforms, cate_selection, logger)
+dataset = fashionset.FashionDataset(param, transforms, logger)
 
 # %%
 dataset.nega_df.head()
