@@ -10,7 +10,7 @@ data_param:
   use_visual: true # use visual data
   use_outfit_semantic: true # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
-  transforms: false
+  transforms: true
   cate_selection: [top, bottom, outerwear, bag, footwear] # [full-body, top, bottom, outerwear, bag, footwear, accessory]
   num_pairwise: [2, 3, 4]
   using_max_num_pairwise: true
