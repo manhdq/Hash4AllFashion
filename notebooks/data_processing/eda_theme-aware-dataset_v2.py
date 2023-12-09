@@ -1,4 +1,4 @@
-AA# %%
+AA  # %%
 import os
 import os.path as osp
 from glob import glob
@@ -16,10 +16,11 @@ import cv2
 
 sys.path += ["../"]
 from reproducible_code.tools import io, plot, image_io
+
 importlib.reload(plot)
 
 sns.set_theme()
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_style("whitegrid", {"axes.grid": False})
 tqdm.pandas()
 
 # %% [markdown]
@@ -39,9 +40,13 @@ df_outfit_meta.isna().sum()
 
 # %%
 outfit_title = df_outfit_meta["en_Outfit_Name"].dropna().unique().tolist()
-outfit_desc = df_outfit_meta["en_Outfit_Description"].dropna().unique().tolist()
+outfit_desc = (
+    df_outfit_meta["en_Outfit_Description"].dropna().unique().tolist()
+)
 outfit_style = df_outfit_meta["en_Outfit_Style"].dropna().unique().tolist()
-outfit_occasion = df_outfit_meta["en_Outfit_Occasion"].dropna().unique().tolist()
+outfit_occasion = (
+    df_outfit_meta["en_Outfit_Occasion"].dropna().unique().tolist()
+)
 outfit_fit = df_outfit_meta["en_Outfit_Fit"].dropna().unique().tolist()
 
 # %%
@@ -63,34 +68,64 @@ outfit_fit_map = {
     "Appear long neck": "Long neck",
     "Look small": "Small face",
     "Strong man": "Strong",
-    "Show your buttocks": "Bottom"
+    "Show your buttocks": "Bottom",
 }
 fit_json = osp.join(data_dir, "json", "fit_map.json")
 # io.save_json(outfit_fit_map, fit_json)
 
 # %%
 mask = df_outfit_meta["en_Outfit_Fit"].notna()
-df_outfit_meta.loc[mask, "outfit_fit"] = df_outfit_meta.loc[mask, "en_Outfit_Fit"].progress_apply(lambda x: outfit_fit_map[x])
+df_outfit_meta.loc[mask, "outfit_fit"] = df_outfit_meta.loc[
+    mask, "en_Outfit_Fit"
+].progress_apply(lambda x: outfit_fit_map[x])
 
 # %%
 outfit_fit = df_outfit_meta["outfit_fit"].dropna().unique().tolist()
 outfit_fit
 
 # %%
-df_outfit_meta.fillna('', inplace=True)
+df_outfit_meta.fillna("", inplace=True)
 df_outfit_meta.iloc[1]["cn_Outfit_Style"]
 
 # %%
 df_outfit_meta.columns.tolist()
 
 # %%
-df_outfit_meta["detailed_description"] = df_outfit_meta.progress_apply(lambda row: ((row["en_Outfit_Description"]  if len(row["en_Outfit_Description"]) != 0 else "") + (row["en_Outfit_Name"] + "." if len(row["en_Outfit_Name"]) != 0 else "") + ("Gender " + row["en_Outfit_Gender"] + "." if len(row["en_Outfit_Gender"]) != 0 else "") + ("For " + row["en_Outfit_Occasion"] + " occasion." if len(row["en_Outfit_Occasion"]) != 0 else "") + (row["en_Outfit_Occasion"] + " style." if len(row["en_Outfit_Occasion"]) != 0 else "") + (row["outfit_fit"] + " fit." if len(row["outfit_fit"]) != 0 else "")).lower(), axis=1)
+df_outfit_meta["detailed_description"] = df_outfit_meta.progress_apply(
+    lambda row: (
+        (
+            row["en_Outfit_Description"]
+            if len(row["en_Outfit_Description"]) != 0
+            else ""
+        )
+        + (
+            row["en_Outfit_Name"] + "."
+            if len(row["en_Outfit_Name"]) != 0
+            else ""
+        )
+        + (
+            "Gender " + row["en_Outfit_Gender"] + "."
+            if len(row["en_Outfit_Gender"]) != 0
+            else ""
+        )
+        + (
+            "For " + row["en_Outfit_Occasion"] + " occasion."
+            if len(row["en_Outfit_Occasion"]) != 0
+            else ""
+        )
+        + (
+            row["en_Outfit_Occasion"] + " style."
+            if len(row["en_Outfit_Occasion"]) != 0
+            else ""
+        )
+        + (row["outfit_fit"] + " fit." if len(row["outfit_fit"]) != 0 else "")
+    ).lower(),
+    axis=1,
+)
 print(df_outfit_meta.iloc[0]["detailed_description"])
 
 # %%
-meta_csv = osp.join(
-    data_dir, "important", "outfit_meta_v2.csv"
-)
+meta_csv = osp.join(data_dir, "important", "outfit_meta_v2.csv")
 # io.to_csv(meta_csv, df_outfit_meta)
 df_outfit_meta = io.load_csv(meta_csv)
 df_outfit_meta.head()
@@ -107,7 +142,9 @@ df_outfit_items.head()
 # %%
 print(len(df_outfit_meta))
 outfit_name = "ceshi_xx1423"
-oid = df_outfit_meta[df_outfit_meta["cn_Outfit_Name"] != outfit_name]["id"].iloc[0]
+oid = df_outfit_meta[df_outfit_meta["cn_Outfit_Name"] != outfit_name][
+    "id"
+].iloc[0]
 print(len(df_outfit_meta))
 
 # %%
@@ -133,7 +170,7 @@ grey_images = []
 
 for i, row in sample_outfits.iterrows():
     outfit_id = row["outfit_id"]
-    
+
     item_images = []
     outfit_images = []
 
@@ -151,7 +188,7 @@ for i, row in sample_outfits.iterrows():
 
     else:
         outfit_text = outfit_info["detailed_description"].iloc[0]
-        
+
     row = row[row != "-1"]
     for cate, item_id in row[1:].items():
         image_path = osp.join(outfit_dir, str(item_id))
@@ -168,9 +205,9 @@ for i, row in sample_outfits.iterrows():
 
         if image is None:
             continue
-        
+
         sizes = image.shape
-    
+
         if len(sizes) == 3:
             if sizes[-1] == 4:
                 print("4-channel image")
@@ -181,12 +218,14 @@ for i, row in sample_outfits.iterrows():
             grey_images.append(image)
 
         image = cv2.resize(image, new_sizes)
-        image = cv2.putText(image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+        image = cv2.putText(
+            image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
+        )
         item_images.append(image)
 
     if len(item_images) == 0:
         continue
-    
+
     item_images = np.vstack(item_images)
     ih, iw, _ = item_images.shape
 
@@ -204,7 +243,7 @@ for i, row in sample_outfits.iterrows():
     outfit_images = np.vstack(outfit_images)
     oh, ow, _ = outfit_images.shape
 
-    outfit_images = cv2.resize(outfit_images, (int(ih * ow/oh), ih))
+    outfit_images = cv2.resize(outfit_images, (int(ih * ow / oh), ih))
     combined_image = np.hstack((item_images, outfit_images))
 
     sample_images.append(combined_image)
@@ -218,7 +257,7 @@ plot.display_multiple_images(
     titles=sample_outfit_titles,
     fontsize=10,
     axes_pad=2.4,
-    line_length=5
+    line_length=5,
 )
 
 # %% [markdown]
@@ -226,7 +265,9 @@ plot.display_multiple_images(
 
 # %%
 df_item_cate = io.load_csv(
-    osp.join(data_dir, "important", "processed_theme_aware_item_categories.csv")
+    osp.join(
+        data_dir, "important", "processed_theme_aware_item_categories.csv"
+    )
 )
 df_item_cate.head(5)
 
@@ -234,7 +275,10 @@ df_item_cate.head(5)
 for cate in df_item_cate["category"].unique():
     print("Category:", cate)
     sample_df = df_item_cate[df_item_cate["category"] == cate].sample(16)
-    images = [osp.join(outfits_dir, osp.basename(img).split('_')[0], img) for img in sample_df["images"]]
+    images = [
+        osp.join(outfits_dir, osp.basename(img).split("_")[0], img)
+        for img in sample_df["images"]
+    ]
     plot.display_multiple_images(images)
 
 # %% [markdown]
@@ -262,15 +306,13 @@ df_item_cate[df_item_cate["images"] == img]
 
 # %% [markdown]
 # #### Nonexist
-nonexist_images = io.load_txt(
-    osp.join(data_dir, "nonexist_images.txt")
-)
+nonexist_images = io.load_txt(osp.join(data_dir, "nonexist_images.txt"))
 len(nonexist_images)
 
 # %% [markdown]
 # Check again if these are not valid images
 count = 0
-get_dir = lambda x: osp.basename(x).split('_')[0]
+get_dir = lambda x: osp.basename(x).split("_")[0]
 
 for img in nonexist_images:
     img_path = osp.join(outfits_dir, get_dir(img), img)
@@ -290,10 +332,18 @@ error_tpls = []
 for img in nonexist_images:
     img_dir = get_dir(img)
     cate = df_item_cate[df_item_cate["images"] == img]["category"].iloc[0]
-    outfit_img = df_outfit_items.loc[df_outfit_items["outfit_id"] == int(img_dir), cate].iloc[0]
+    outfit_img = df_outfit_items.loc[
+        df_outfit_items["outfit_id"] == int(img_dir), cate
+    ].iloc[0]
     if img == outfit_img:
-        df_outfit_items.loc[df_outfit_items["outfit_id"] == int(img_dir), cate] = "-1"
-        print(df_outfit_items.loc[df_outfit_items["outfit_id"] == int(img_dir), cate])
+        df_outfit_items.loc[
+            df_outfit_items["outfit_id"] == int(img_dir), cate
+        ] = "-1"
+        print(
+            df_outfit_items.loc[
+                df_outfit_items["outfit_id"] == int(img_dir), cate
+            ]
+        )
     else:
         error_tpls.append((img, outfit_img))
 
@@ -301,9 +351,11 @@ for img in nonexist_images:
 len(error_tpls)
 
 # %%
-for (img, real_img) in error_tpls:
+for img, real_img in error_tpls:
     cate = df_item_cate[df_item_cate["images"] == img]["sub_category"].iloc[0]
-    real_cate = df_item_cate[df_item_cate["images"] == real_img]["sub_category"].iloc[0]
+    real_cate = df_item_cate[df_item_cate["images"] == real_img][
+        "sub_category"
+    ].iloc[0]
     print(cate, real_cate)
 
 # %% [markdown]

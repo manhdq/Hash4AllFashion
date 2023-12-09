@@ -54,9 +54,7 @@ param = config.fitb_data_param
 print(config.net_param.load_trained)
 cate_selection = param.cate_selection
 transforms = get_img_trans(param.phase, param.image_size)
-dataset = fashionset.FITBDataset(
-    param, transforms, logger
-)
+dataset = fashionset.FITBDataset(param, transforms, logger)
 
 # # %%
 # df = pd.read_csv("/home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware/train/test.csv")
@@ -156,18 +154,17 @@ for idx in idxs:
     # Stack images of posi outfit and nega outfit vertically
     outfs = []
 
-    items_1 = outf_items[0: num_items_each]
-    items_2 = outf_items[num_items_each: num_items_each*2]    
+    items_1 = outf_items[0:num_items_each]
+    items_2 = outf_items[num_items_each : num_items_each * 2]
     modified_cate_idx = [
-        idx for idx in range(num_items_each)
-        if items_1[idx] != items_2[idx]
+        idx for idx in range(num_items_each) if items_1[idx] != items_2[idx]
     ][0]
 
     # through outfits
     for oi in range(4):
         outf_imgs = []
-        items = outf_items[num_items_each*oi: num_items_each*(oi+1)]
-        cates = outf_cates[num_items_each*oi: num_items_each*(oi+1)]
+        items = outf_items[num_items_each * oi : num_items_each * (oi + 1)]
+        cates = outf_cates[num_items_each * oi : num_items_each * (oi + 1)]
 
         # through items of outfit
         for i, item_id in enumerate(items):
@@ -178,7 +175,7 @@ for idx in idxs:
                 print(e)
                 continue
 
-            cate = cates[i].split('.')[0]
+            cate = cates[i].split(".")[0]
             img = cv2.resize(img, new_sizes)
             # img = cv2.putText(
             #     img,
@@ -191,17 +188,13 @@ for idx in idxs:
             # )
             if i == modified_cate_idx:
                 img = cv2.copyMakeBorder(
-                    img[
-                        border_size:-border_size,
-                        border_size:-border_size,
-                        :
-                    ],
+                    img[border_size:-border_size, border_size:-border_size, :],
                     top=border_size,
                     bottom=border_size,
                     left=border_size,
                     right=border_size,
                     borderType=cv2.BORDER_CONSTANT,
-                    value=[255, 255, 0]
+                    value=[255, 255, 0],
                 )
             outf_imgs.append(img)
 

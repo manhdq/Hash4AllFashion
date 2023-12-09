@@ -99,6 +99,7 @@ def evalute_accuracy(config, logger):
 
 def evalute_rank(config, logger):
     """Evaluate fashion net for NDCG an AUC."""
+
     def outfit_scores():
         """Compute rank scores for data set."""
         num_users = net.param.num_users

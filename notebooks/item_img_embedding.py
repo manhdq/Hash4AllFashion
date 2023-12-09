@@ -15,11 +15,12 @@ import cv2
 sys.path += ["../"]
 from fashion_clip.fashion_clip import FashionCLIP
 from reproducible_code.tools import io, plot
+
 importlib.reload(plot)
 importlib.reload(io)
 
 sns.set_theme()
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_style("whitegrid", {"axes.grid": False})
 tqdm.pandas()
 
 # %% [markdown]
@@ -52,11 +53,13 @@ img_names = os.listdir(img_dir)
 num_imgs = 0
 
 for idx in tqdm(range(0, len(img_names), batch_size)):
-    imgs = img_names[idx:idx+batch_size]
+    imgs = img_names[idx : idx + batch_size]
     num_imgs += len(imgs)
     paths = [osp.join(img_dir, img) for img in imgs]
     embeddings = model.encode_images(paths, batch_size)
-    image_embeddings.update({n:e[np.newaxis, ...] for n, e in zip(imgs, embeddings)})
+    image_embeddings.update(
+        {n: e[np.newaxis, ...] for n, e in zip(imgs, embeddings)}
+    )
     if idx % 4000 == 0:
         print("Row ", idx)
 
@@ -64,9 +67,7 @@ for idx in tqdm(range(0, len(img_names), batch_size)):
 len(img_names), len(image_embeddings)
 
 # %%
-visual_encoding_pkl = osp.join(
-    data_dir, "visual_encoding.pkl"
-)
+visual_encoding_pkl = osp.join(data_dir, "visual_encoding.pkl")
 
 # %%
 io.save_pickle(image_embeddings, visual_encoding_pkl)

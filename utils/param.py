@@ -173,7 +173,7 @@ class DataParam(_Param):
                 [utils.colour(cate, "Red") for cate in self.cate_not_selection]
             )
         )
-        
+
         self.cat2id = cfg.CateIdx
         self.id2cat = {v: k for k, v in cfg.CateIdx.items()}
 
@@ -291,7 +291,7 @@ class FITBDataParam(_Param):
             + ", ".join(
                 [utils.colour(cate, "Red") for cate in self.cate_not_selection]
             )
-        )        
+        )
 
     @property
     def fitb_fn(self):
@@ -317,14 +317,14 @@ class FITBDataParam(_Param):
     @property
     def data_csv(self):
         return os.path.join(self.data_root, self.data_set, f"{self.phase}.csv")
-    
+
     @property
     def outfit_semantic(self):
         return os.path.join(self.data_root, "outfit_semantic.pkl")
 
     @property
     def semantic_fn(self):
-        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")    
+        return os.path.join(self.data_root, "sentence_vector/semantic.pkl")
 
     @property
     def image_list_fn(self):

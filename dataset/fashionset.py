@@ -141,17 +141,13 @@ class Datum(object):
                 if self.transforms:
                     img = self.transforms(image=img)["image"]
                 else:
-                    img = torch.from_numpy(
-                        cv2.resize(img, (224, 224))
-                    )
+                    img = torch.from_numpy(cv2.resize(img, (224, 224)))
             else:
                 img = self.load_image(id_name)
                 if self.transforms:
                     img = self.transforms(image=img)["image"]
                 else:
-                    img = torch.from_numpy(
-                        cv2.resize(img, (224, 224))
-                    )
+                    img = torch.from_numpy(cv2.resize(img, (224, 224)))
             images.append(img)
         return images
 
@@ -183,9 +179,7 @@ class Datum(object):
 
 
 class FashionDataset(Dataset):
-    def __init__(
-        self, param, transforms=None, logger=None
-    ):
+    def __init__(self, param, transforms=None, logger=None):
         self.param = param
         self.logger = logger
 
@@ -225,7 +219,9 @@ class FashionDataset(Dataset):
             cate_selection = param.cate_selection + ["outfit_id", "compatible"]
 
         # Get cate-to-idx mapping
-        self.cate_idxs = {cate: idx for idx, cate in enumerate(self.cate_selection)}
+        self.cate_idxs = {
+            cate: idx for idx, cate in enumerate(self.cate_selection)
+        }
 
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
@@ -498,8 +494,7 @@ class FashionDataset(Dataset):
     def _PairWiseIncludeNull(self, index):
         """Get a pair of outfits."""
         posi_oid, posi_cates, posi_tpl = self.get_tuple(
-            self.posi_df, int(index // self.ratio),
-            include_null=True
+            self.posi_df, int(index // self.ratio), include_null=True
         )
         nega_oid, nega_cates, nega_tpl = self.get_tuple(
             self.nega_df, index, include_null=True
@@ -523,7 +518,7 @@ class FashionDataset(Dataset):
             "outf_s": outf_s,
             "posi_tpl": (posi_cates, posi_v, posi_s),
             "nega_tpl": (nega_cates, nega_v, nega_s),
-        }        
+        }
 
     def _PosiOnly(self, index):
         """Get single outfit."""
@@ -583,7 +578,7 @@ class FashionDataset(Dataset):
         """Return the size of dataset."""
         return dict(
             PairWise=int(self.ratio * self.num_posi),
-            PairWiseIncludeNull=int(self.ratio * self.num_posi),        
+            PairWiseIncludeNull=int(self.ratio * self.num_posi),
             PosiOnly=self.num_posi,  # all positive tuples
             NegaOnly=int(self.ratio * self.num_posi),  # all negative tuples
         )[self.param.data_mode]
@@ -616,21 +611,19 @@ class FITBDataset(Dataset):
         self.cate_idxs = {
             cate: idx for idx, cate in enumerate(self.cate_selection)
         }
-        
+
         self.df = pd.read_csv(param.data_csv)
         self.df = self.get_new_data_with_new_cate_selection(
             self.df, cate_selection
-        )        
-        self.outfit_ids = self.df["outfit_id"].tolist()
-        self.df = self.df.reset_index(drop=True).drop(
-            "outfit_id", axis=1
         )
+        self.outfit_ids = self.df["outfit_id"].tolist()
+        self.df = self.df.reset_index(drop=True).drop("outfit_id", axis=1)
 
         # Load semantic if any
         if param.use_outfit_semantic:
             self.outfit_semantic = load_semantic_data(param.outfit_semantic)
         else:
-            self.outfit_semantic = None        
+            self.outfit_semantic = None
 
         if param.use_semantic:
             semantic = load_semantic_data(param.semantic_fn)
@@ -650,16 +643,15 @@ class FITBDataset(Dataset):
 
         # Create item_list and remove -1 value
         self.item_list = [
-            list(set(self.df.iloc[:, i]))
-            for i in range(len(self.df.columns))
+            list(set(self.df.iloc[:, i])) for i in range(len(self.df.columns))
         ]
-        
+
         for idx, _ in enumerate(self.item_list):
             try:
                 self.item_list[idx].remove("-1")
             except Exception:
                 continue
-            
+
         # Load fitb data
         if osp.exists(param.fitb_fn):
             self.fitb = pd.read_csv(param.fitb_fn)
@@ -690,7 +682,7 @@ class FITBDataset(Dataset):
         outfit_cates = [
             cfg.CateIdx[col] for col in outfit_tuple.index.to_list()
         ]
-        return oid, outfit_cates, outfit_tuple.values.tolist()    
+        return oid, outfit_cates, outfit_tuple.values.tolist()
 
     def make_fill_in_blank(self, save_fn=None, num_cand=4, fix_cate=None):
         """Make fill-in-the-blank list.
@@ -729,7 +721,7 @@ class FITBDataset(Dataset):
             )  # [num_cate, num_posi*num_item]
 
         # replace the items in outfits
-        for idx in tqdm.tqdm(range(num_posi)):            
+        for idx in tqdm.tqdm(range(num_posi)):
             # Get nonempty cates of row
             raw_tpl = self.df.iloc[idx]
             outf_tpl = raw_tpl[raw_tpl != "-1"]
@@ -738,16 +730,12 @@ class FITBDataset(Dataset):
             # Get random cate in each candidate to fill with a random item
             cate = np.random.choice(cates, size=1)[0]
             cate_idx = self.cate_idxs[cate]
-            cands = cand_item[cate_idx][
-                num_item * idx : num_item * (idx + 1)
-            ]
+            cands = cand_item[cate_idx][num_item * idx : num_item * (idx + 1)]
 
             # remove the ground-truth item
-            cands = list(
-                set(cands) - {raw_tpl[cate]}
-            )
+            cands = list(set(cands) - {raw_tpl[cate]})
 
-            # Replace the item 
+            # Replace the item
             for i in range(1, num_cand):
                 cand_tpl[i].loc[idx, cate] = cands[i]
 
@@ -785,7 +773,7 @@ class FITBDataset(Dataset):
         outf_tpl = outf_tpls.iloc[num_cate * i : num_cate * (i + 1)]
 
         # Remove -1 and get cates
-        outf_tpl =  outf_tpl[outf_tpl != "-1"]
+        outf_tpl = outf_tpl[outf_tpl != "-1"]
         outf_tpl = self.datum.get(outf_tpl)
         outf_v, outf_s = outf_tpl["visual"], outf_tpl["semantic"]
 
@@ -832,9 +820,7 @@ class FashionLoader(object):
         if param.transforms:
             transforms = get_img_trans(param.phase, param.image_size)
 
-        self.dataset = FashionDataset(
-            param, transforms, logger
-        )
+        self.dataset = FashionDataset(param, transforms, logger)
 
         self.loader = DataLoader(
             dataset=self.dataset,
@@ -911,7 +897,8 @@ class FITBLoader(object):
             utils.colour(param.phase),
         )
         LOGGER.info(
-            "Data loader configuration: batch size (%s) " "number of workers (%s)",
+            "Data loader configuration: batch size (%s) "
+            "number of workers (%s)",
             utils.colour(param.num_cand),
             utils.colour(param.num_workers),
         )
@@ -923,7 +910,7 @@ class FITBLoader(object):
             num_workers=param.num_workers,
             shuffle=False,
             pin_memory=True,
-            collate_fn=outfit_fitb_collate,            
+            collate_fn=outfit_fitb_collate,
         )
 
     def __len__(self):
@@ -1016,7 +1003,7 @@ def outfit_fashion_collate(batch):
     if len(posi_mask) != 0:
         posi_mask = torch.Tensor(posi_mask).to(torch.long)
         posi_cates_out = torch.Tensor(posi_cates_out).to(torch.long)
-        
+
     if len(posi_s_out) != 0:
         posi_s_out = torch.cat(posi_s_out, 0)
 
@@ -1110,7 +1097,7 @@ def outfit_fitb_collate(batch):
 def get_dataloader(param, logger):
     name = param.__class__.__name__
     if name == "FITBDataParam":
-        return FITBLoader(param)    
+        return FITBLoader(param)
     elif name == "DataParam":
         return FashionLoader(param, logger)
     return None

@@ -8,11 +8,13 @@ from icecream import ic
 # %%
 a = defaultdict(tuple)
 
+
 def get_val(d):
     print(type(d))
     ic(d["a"])
 
-get_val(a)    
+
+get_val(a)
 
 # %%
 x = torch.randn((1, 512))
@@ -27,7 +29,7 @@ results = dict(np.load("results/fhn_voe_t3_12_1.npz"))
 print(results)
 
 # %%
-a = np.arange(4*5).reshape(4, 5)
+a = np.arange(4 * 5).reshape(4, 5)
 a
 
 # %%
@@ -68,10 +70,12 @@ def foo():
 a, b, c, d, e, f = foo()
 
 # %%
-a = {"1":2, "3":4, "2":3}
+a = {"1": 2, "3": 4, "2": 3}
+
 
 def do_st(**inputs):
     print(inputs["1"])
+
 
 do_st(**a)
 

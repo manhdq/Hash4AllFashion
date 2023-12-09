@@ -3,13 +3,14 @@ import os
 import os.path as osp
 
 from tqdm import tqdm
+
 tqdm.pandas()
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from reproducible_code.tools import image_io, io
 
-# %% 
+# %%
 data_dir = "/home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware"
 image_dir = osp.join(data_dir, "images")
 
@@ -55,7 +56,10 @@ df_outfit_items = df_outfit_items.sample(frac=1).reset_index(drop=True)
 df_outfit_items.head()
 
 # %%
-train_df, val_df = df_outfit_items.iloc[:num_train], df_outfit_items.iloc[num_train:]
+train_df, val_df = (
+    df_outfit_items.iloc[:num_train],
+    df_outfit_items.iloc[num_train:],
+)
 len(train_df), len(val_df)
 
 # %%

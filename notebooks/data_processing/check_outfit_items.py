@@ -17,10 +17,11 @@ import cv2
 
 sys.path += ["../"]
 from reproducible_code.tools import io, plot, image_io
+
 importlib.reload(plot)
 
 sns.set_theme()
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_style("whitegrid", {"axes.grid": False})
 tqdm.pandas()
 
 from icecream import ic
@@ -48,7 +49,9 @@ df_outfit_items.head()
 # %% [markdown]
 # Load latest outfits' categories
 df_item_categories = io.load_csv(
-    osp.join(data_dir, "important", "processed_theme_aware_item_categories.csv")
+    osp.join(
+        data_dir, "important", "processed_theme_aware_item_categories.csv"
+    )
 )
 df_item_categories.head(5)
 
@@ -58,7 +61,7 @@ df_item_categories.head(5)
 #     print("Category:", cate)
 #     sample_df = df_item_categories[df_item_categories["category"] == cate].sample(16)
 #     # images = [osp.join(outfits_dir, osp.basename(img).split('_')[0], img) for img in sample_df["images"]]
-#     images = [osp.join(image_dir, img) for img in sample_df["images"]]    
+#     images = [osp.join(image_dir, img) for img in sample_df["images"]]
 #     plot.display_multiple_images(images)
 
 # %% [markdown]
@@ -85,24 +88,31 @@ print("Before removing non-exist item:", len(df_item_categories))
 removed_non_exist_df_item_categories = df_item_categories.copy()[
     ~df_item_categories["images"].isin(non_exist_items)
 ]
-print("After removing non-exist item:", len(removed_non_exist_df_item_categories))
+print(
+    "After removing non-exist item:", len(removed_non_exist_df_item_categories)
+)
 
 # %% [markdown]
 # create outfit_id column
-removed_non_exist_df_item_categories["outfit_id"] = removed_non_exist_df_item_categories["images"] \
-.apply(
-    lambda x: x.split('_')[0]
+removed_non_exist_df_item_categories[
+    "outfit_id"
+] = removed_non_exist_df_item_categories["images"].apply(
+    lambda x: x.split("_")[0]
 )
 removed_non_exist_df_item_categories.head()
 
 # %%
-unq_outfit_ids = list(set(removed_non_exist_df_item_categories.outfit_id.tolist()))
-unq_categories = list(set(removed_non_exist_df_item_categories.category.tolist()))
+unq_outfit_ids = list(
+    set(removed_non_exist_df_item_categories.outfit_id.tolist())
+)
+unq_categories = list(
+    set(removed_non_exist_df_item_categories.category.tolist())
+)
 print(len(unq_outfit_ids))
 print(len(unq_categories))
 
-# %% 
-df_outfit_items_latest = pd.DataFrame(columns=["outfit_id"]+unq_categories)
+# %%
+df_outfit_items_latest = pd.DataFrame(columns=["outfit_id"] + unq_categories)
 df_outfit_items_latest["outfit_id"] = unq_outfit_ids
 df_outfit_items_latest = df_outfit_items_latest.set_index(["outfit_id"])
 df_outfit_items_latest.head()
@@ -121,12 +131,16 @@ df_outfit_items_latest = df_outfit_items_latest.reset_index()
 df_outfit_items_latest.head()
 
 # %%
-df_outfit_items_latest["outfit_id"] = df_outfit_items_latest["outfit_id"].astype("int")
+df_outfit_items_latest["outfit_id"] = df_outfit_items_latest[
+    "outfit_id"
+].astype("int")
 len(df_outfit_items_latest), len(df_outfit_items)
 
 # %% [markdown]
 # check for missing outfits of latest outfit items dataframe
-missing_outf_ids = set(df_outfit_items.outfit_id.tolist()) - set(df_outfit_items_latest.outfit_id.tolist())
+missing_outf_ids = set(df_outfit_items.outfit_id.tolist()) - set(
+    df_outfit_items_latest.outfit_id.tolist()
+)
 missing_outf_ids = list(missing_outf_ids)
 len(missing_outf_ids)
 
@@ -139,8 +153,12 @@ len(missing_outf_ids)
 
 # %% [markdown]
 # Check if all missing outfits in process outfit dataframe has all error items
-df_missing_outf = df_outfit_items[df_outfit_items.outfit_id.isin(missing_outf_ids)]
-(df_missing_outf == "-1").sum().sum() == len(df_missing_outf) * len(unq_categories)
+df_missing_outf = df_outfit_items[
+    df_outfit_items.outfit_id.isin(missing_outf_ids)
+]
+(df_missing_outf == "-1").sum().sum() == len(df_missing_outf) * len(
+    unq_categories
+)
 
 # %% [markdown]
 # ### Display sample outfits
@@ -155,11 +173,13 @@ grey_images = []
 
 for i, row in sample_outfits.iterrows():
     outfit_id = row["outfit_id"]
-    
+
     item_images = []
     outfit_images = []
 
-    outfit_info = df_outfit_descriptions[df_outfit_descriptions["id"] == outfit_id]
+    outfit_info = df_outfit_descriptions[
+        df_outfit_descriptions["id"] == outfit_id
+    ]
     outfit_dir = osp.join(outfits_dir, str(outfit_id))
 
     if show_original:
@@ -172,11 +192,11 @@ for i, row in sample_outfits.iterrows():
         outfit_text = f"Description: {outfit_desc}\nName: {outfit_title}\nStyle: {outfit_style}\nOccasion: {outfit_occasion}\nFit: {outfit_fit}"
 
     else:
-        outfit_text = outfit_info["en_Outfit_Description"].iloc[0]        
+        outfit_text = outfit_info["en_Outfit_Description"].iloc[0]
         choice = random.randint(0, 1)
         if choice == 1:
-            outfit_text = outfit_info["additional_info"].iloc[0]        
-        
+            outfit_text = outfit_info["additional_info"].iloc[0]
+
     row = row[row != "-1"]
     for cate, item_id in row[1:].items():
         image_path = osp.join(outfit_dir, str(item_id))
@@ -193,9 +213,9 @@ for i, row in sample_outfits.iterrows():
 
         if image is None:
             continue
-        
+
         sizes = image.shape
-    
+
         if len(sizes) == 3:
             if sizes[-1] == 4:
                 print("4-channel image")
@@ -206,12 +226,14 @@ for i, row in sample_outfits.iterrows():
             grey_images.append(image)
 
         image = cv2.resize(image, new_sizes)
-        image = cv2.putText(image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+        image = cv2.putText(
+            image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
+        )
         item_images.append(image)
 
     if len(item_images) == 0:
         continue
-    
+
     item_images = np.vstack(item_images)
     ih, iw, _ = item_images.shape
 
@@ -229,7 +251,7 @@ for i, row in sample_outfits.iterrows():
     outfit_images = np.vstack(outfit_images)
     oh, ow, _ = outfit_images.shape
 
-    outfit_images = cv2.resize(outfit_images, (int(ih * ow/oh), ih))
+    outfit_images = cv2.resize(outfit_images, (int(ih * ow / oh), ih))
     combined_image = np.hstack((item_images, outfit_images))
 
     sample_images.append(combined_image)
@@ -242,7 +264,7 @@ plot.display_multiple_images(
     titles=sample_outfit_titles,
     fontsize=10,
     axes_pad=2.4,
-    line_length=8
+    line_length=8,
 )
 
 # %% [markdown]
@@ -250,7 +272,9 @@ plot.display_multiple_images(
 susp_ids = [13605, 12861]
 
 # %%
-df_outf_susp = df_outfit_items_latest[df_outfit_items_latest.outfit_id.isin(susp_ids)]
+df_outf_susp = df_outfit_items_latest[
+    df_outfit_items_latest.outfit_id.isin(susp_ids)
+]
 print(len(df_outf_susp))
 df_outf_susp.head()
 
@@ -260,11 +284,13 @@ sample_outfit_titles = []
 
 for _, row in df_outf_susp.iterrows():
     outfit_id = row.outfit_id
-    
+
     item_images = []
     outfit_images = []
 
-    outfit_info = df_outfit_descriptions[df_outfit_descriptions["id"] == outfit_id]
+    outfit_info = df_outfit_descriptions[
+        df_outfit_descriptions["id"] == outfit_id
+    ]
     outfit_dir = osp.join(outfits_dir, str(outfit_id))
 
     if show_original:
@@ -277,12 +303,12 @@ for _, row in df_outf_susp.iterrows():
         outfit_text = f"Description: {outfit_desc}\nName: {outfit_title}\nStyle: {outfit_style}\nOccasion: {outfit_occasion}\nFit: {outfit_fit}"
 
     else:
-        outfit_text = outfit_info["en_Outfit_Description"].iloc[0]        
+        outfit_text = outfit_info["en_Outfit_Description"].iloc[0]
         choice = random.randint(0, 1)
         if choice == 1:
             outfit_text = outfit_info["additional_info"].iloc[0]
         outfit_text += f". ID: {outfit_id}"
-        
+
     row = row[row != "-1"]
     for cate, item_id in row[1:].items():
         image_path = osp.join(outfit_dir, str(item_id))
@@ -299,9 +325,9 @@ for _, row in df_outf_susp.iterrows():
 
         if image is None:
             continue
-        
+
         sizes = image.shape
-    
+
         if len(sizes) == 3:
             if sizes[-1] == 4:
                 print("4-channel image")
@@ -312,12 +338,14 @@ for _, row in df_outf_susp.iterrows():
             grey_images.append(image)
 
         image = cv2.resize(image, new_sizes)
-        image = cv2.putText(image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+        image = cv2.putText(
+            image, cate, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2
+        )
         item_images.append(image)
 
     if len(item_images) == 0:
         continue
-    
+
     item_images = np.vstack(item_images)
     ih, iw, _ = item_images.shape
 
@@ -335,7 +363,7 @@ for _, row in df_outf_susp.iterrows():
     outfit_images = np.vstack(outfit_images)
     oh, ow, _ = outfit_images.shape
 
-    outfit_images = cv2.resize(outfit_images, (int(ih * ow/oh), ih))
+    outfit_images = cv2.resize(outfit_images, (int(ih * ow / oh), ih))
     combined_image = np.hstack((item_images, outfit_images))
 
     sample_images.append(combined_image)
@@ -348,14 +376,18 @@ plot.display_multiple_images(
     titles=sample_outfit_titles,
     fontsize=10,
     axes_pad=2.4,
-    line_length=8
+    line_length=8,
 )
 
 # %% [markdown]
 # remove these invalid outfits
-latest_path = osp.join(data_dir, "important", "clean_theme_outfit_items_v3.csv")
+latest_path = osp.join(
+    data_dir, "important", "clean_theme_outfit_items_v3.csv"
+)
 df_outfit_items_latest = io.load_csv(latest_path)
-df_outfit_items_latest = df_outfit_items_latest[~df_outfit_items_latest.outfit_id.isin(susp_ids)]
+df_outfit_items_latest = df_outfit_items_latest[
+    ~df_outfit_items_latest.outfit_id.isin(susp_ids)
+]
 len(df_outfit_items_latest)
 
 # %%

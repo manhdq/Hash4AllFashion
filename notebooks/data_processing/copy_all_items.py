@@ -12,13 +12,15 @@ import cv2
 from PIL import Image
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 sns.set_theme()
-sns.set_style("whitegrid", {'axes.grid' : False})
+sns.set_style("whitegrid", {"axes.grid": False})
 
 from reproducible_code.tools import image_io, io, plot
+
 importlib.reload(image_io)
 
-# %% 
+# %%
 data_dir = "/home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware"
 outfits_dir = osp.join(data_dir, "outfits")
 img_paths = glob(osp.join(outfits_dir, "*/*.jpg"))
@@ -87,7 +89,7 @@ plot.display_multiple_images(sample_imgs)
 # So if we first load image using opencv and convert to rgb
 # and save it then load again using PIL.Image the colours are
 # flipped
-# 
+#
 # So first load we should not convert to rgb
 
 # %% [markdown]
@@ -120,7 +122,7 @@ sample_imgs = []
 for img_path in sample_paths:
     # load image with opencv
     img = cv2.imread(img_path)
-    
+
     # save image in new folder
     img_fname = osp.basename(img_path)
     new_img_path = osp.join(new_img_dir, img_fname)
@@ -167,7 +169,7 @@ sample_imgs = []
 for img_path in sample_paths:
     # load image with opencv
     img = np.array(Image.open(img_path))
-    
+
     # save image in new folder
     img_fname = osp.basename(img_path)
     new_img_path = osp.join(new_img_dir, img_fname)
@@ -222,7 +224,7 @@ len(error_imgs_load), len(error_imgs_save)
 
 # %%
 error_saves = list(error_imgs_save.values())
-error_saves = [' '.join(str(er).split(':')[2:]) for er in error_saves]
+error_saves = [" ".join(str(er).split(":")[2:]) for er in error_saves]
 error_saves = list(set(error_saves))
 error_saves
 
@@ -240,7 +242,7 @@ error_img_fnames
 # %%
 io.save_txt(
     error_img_fnames,
-    osp.join(data_dir, "others", "final_error_image_fnames.txt")
+    osp.join(data_dir, "others", "final_error_image_fnames.txt"),
 )
 
 # %% [markdown]
