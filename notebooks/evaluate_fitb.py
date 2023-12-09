@@ -124,7 +124,7 @@ df_outfit_meta = io.load_csv(
 )
 
 # %%
-num_sample = 8
+num_sample = 12
 new_sizes = (224, 224)
 
 idxs = random.sample(range(len(loader)), num_sample)
@@ -232,7 +232,7 @@ for idx in idxs:
 
 # %%
 plot.display_multiple_images(
-    all_outfs, grid_nrows=2, titles=outf_descs, axes_pad=1.6, line_length=8
+    all_outfs, grid_nrows=3, titles=outf_descs, axes_pad=1.6, line_length=8
 )
 
 # %%
