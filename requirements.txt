@@ -1,8 +1,8 @@
-opencv - python - headless
+opencv-python-headless
 numpy
 torch
 torchvision
-scikit - learn
+scikit-learn
 lmdb
 tensorboardX
 pickle5
