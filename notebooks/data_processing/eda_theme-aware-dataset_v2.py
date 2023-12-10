@@ -1,4 +1,4 @@
-AA  # %%
+# %%
 import os
 import os.path as osp
 from glob import glob
@@ -135,7 +135,7 @@ df_outfit_meta.head()
 
 # %%
 df_outfit_items = io.load_csv(
-    osp.join(data_dir, "important", "clean_theme_outfit_items_v2.csv")
+    osp.join(data_dir, "important", "clean_theme_outfit_items_v3.csv")
 )
 df_outfit_items.head()
 
@@ -147,16 +147,16 @@ oid = df_outfit_meta[df_outfit_meta["cn_Outfit_Name"] != outfit_name][
 ].iloc[0]
 print(len(df_outfit_meta))
 
-# %%
-df_outfit_items = df_outfit_items[df_outfit_items["outfit_id"] == oid]
-len(df_outfit_items)
+# # %%
+# df_outfit_items = df_outfit_items[df_outfit_items["outfit_id"] == oid]
+# len(df_outfit_items)
 
 # %% [markdown]
 # ### Display outfits with their descriptions
 
 # %%
-n_sample = 8
-show_original = False
+n_sample = 12
+show_original = True
 
 # ids = df_outfit_meta[df_outfit_meta["en_Outfit_Fit"]=="Show breasts"]["id"].tolist()
 # sample_outfits = df_outfit_items[df_outfit_items["outfit_id"].isin(ids)].sample(n_sample)
@@ -183,6 +183,9 @@ for i, row in sample_outfits.iterrows():
         outfit_style = outfit_info["en_Outfit_Style"].iloc[0]
         outfit_occasion = outfit_info["en_Outfit_Occasion"].iloc[0]
         outfit_fit = outfit_info["outfit_fit"].iloc[0]
+
+        if outfit_fit != outfit_fit:
+            outfit_fit = "Unknown"
 
         outfit_text = f"Description: {outfit_desc}\nName: {outfit_title}\nStyle: {outfit_style}\nOccasion: {outfit_occasion}\nFit: {outfit_fit}"
 
@@ -252,12 +255,12 @@ for i, row in sample_outfits.iterrows():
 # display_image_sets(sample_images, title=outfit_text)
 plot.display_multiple_images(
     sample_images,
-    grid_nrows=2,
+    grid_nrows=3,
     fig_size=24,
     titles=sample_outfit_titles,
     fontsize=10,
     axes_pad=2.4,
-    line_length=5,
+    line_length=8,
 )
 
 # %% [markdown]
@@ -270,6 +273,10 @@ df_item_cate = io.load_csv(
     )
 )
 df_item_cate.head(5)
+
+# %% [markdown]
+# ## Category EDA
+plot.plot_attribute_frequency(df_item_cate, "category", 10, 10)
 
 # %%
 for cate in df_item_cate["category"].unique():
