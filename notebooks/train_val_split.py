@@ -13,6 +13,31 @@ from reproducible_code.tools import image_io, io
 # %%
 data_dir = "/home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware"
 image_dir = osp.join(data_dir, "images")
+train_dir = osp.join(data_dir, "train")
+
+# %% [markdown]
+# ### Get 200 first rows of train dataframe for training testing
+n = 200
+train_df = io.load_csv(
+    osp.join(train_dir, "train_full.csv"),
+)
+train_df = train_df[:n]
+print(len(train_df))
+train_df.head()
+
+# %%
+io.save_csv(train_df, osp.join(train_dir, "train.csv"))
+
+# %%
+val_df = io.load_csv(
+    osp.join(train_dir, "val_full.csv"),
+)
+val_df = val_df[:n]
+print(len(val_df))
+val_df.head()
+
+# %%
+io.save_csv(val_df, osp.join(train_dir, "val.csv"))
 
 # %%
 df_outfit_items = io.load_csv(
