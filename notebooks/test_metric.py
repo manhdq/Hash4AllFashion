@@ -1,7 +1,23 @@
 # %%
+import os
+import os.path as osp
+import numpy as np
 from utils.metrics import _canonical
 
-# %%
+# %% Loading some metric results
+result_dir = "../results"
+
+for fn in os.listdir(result_dir):
+    pre_fn = osp.basename(fn)
+    print("=" * 10)
+    print(fn)    
+    fpath = osp.join(result_dir, fn)
+    npzfile = np.load(fpath)
+    for f in npzfile:
+        print(f, npzfile[f])
+
+# %% [markdown]
+# ### Playground
 num_scores = 4
 num_users = 3
 
