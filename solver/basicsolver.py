@@ -238,7 +238,7 @@ class BasicSolver(object):
         for idx, inputs in enumerate(loader):
             # Compute output and loss
             inputs = utils.to_device(inputs, self.device)
-            batch_size = len(torch.unique(inputs[0]))
+            batch_size = len(torch.unique(inputs["imgs"][0]))
             data_time = time() - lastest_time
             with torch.no_grad():
                 loss_, accuracy_ = self.step_batch(**inputs)
