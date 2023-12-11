@@ -32,7 +32,7 @@ from icecream import ic
 LOGGER = logging.getLogger("fashion32")
 
 # %%
-cfg_file = "../configs/eval/FHN_VSE_OSE_T3.yaml"
+cfg_file = "../configs/eval/FHN_VSE_T3_fashion32.yaml"
 with open(cfg_file, "r") as f:
     kwargs = yaml.load(f, Loader=yaml.FullLoader)
 

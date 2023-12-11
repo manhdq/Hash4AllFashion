@@ -1,2 +1,2 @@
 #!/bin/zsh
-scripts/eval.py $1 --cfg configs/eval/FHN_VSE_OSE_T3.yaml
+python eval.py $1 --cfg configs/eval/FHN_VOE_T3_fashion32.yaml

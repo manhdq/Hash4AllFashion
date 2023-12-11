@@ -56,7 +56,7 @@ def evalute_accuracy(config, logger):
 
     for idx, inputs in enumerate(pbar):
         # compute output and loss
-        batch_size = inputs["outf_s"].shape[0]
+        batch_size = len(np.unique(inputs["mask"][0]))
         inputs = utils.to_device(inputs, device)
         with torch.no_grad():
             if parallel:

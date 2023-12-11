@@ -155,7 +155,7 @@ print(len(df_outfit_meta))
 # ### Display outfits with their descriptions
 
 # %%
-n_sample = 12
+n_sample = 1
 show_original = True
 
 # ids = df_outfit_meta[df_outfit_meta["en_Outfit_Fit"]=="Show breasts"]["id"].tolist()
@@ -252,16 +252,21 @@ for i, row in sample_outfits.iterrows():
     sample_images.append(combined_image)
     sample_outfit_titles.append(outfit_text)
 
+# %%
 # display_image_sets(sample_images, title=outfit_text)
 plot.display_multiple_images(
     sample_images,
-    grid_nrows=3,
-    fig_size=24,
-    titles=sample_outfit_titles,
-    fontsize=10,
+    grid_nrows=1,
+    fig_size=12,
+    # titles=sample_outfit_titles,
+    titles=None,    
+    fontsize=12,
     axes_pad=2.4,
     line_length=8,
 )
+
+# %%
+print(sample_outfit_titles[0])
 
 # %% [markdown]
 # ### Check all the items in each category

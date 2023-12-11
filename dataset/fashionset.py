@@ -763,10 +763,9 @@ class FITBDataset(Dataset):
 
         # Load outfit semantic if any
         oid = self.outfit_ids[n]
+        outf_smt = []
         if self.outfit_semantic is not None:
             outf_smt = [torch.from_numpy(self.outfit_semantic[oid])]
-        else:
-            outf_s = []
 
         # Load outfit tuple
         outf_tpls = self.fitb.iloc[n]
@@ -778,7 +777,7 @@ class FITBDataset(Dataset):
         outf_v, outf_s = outf_tpl["visual"], outf_tpl["semantic"]
 
         return {
-            "outf_s": outf_smt,
+            "outf_s": outf_smt ,
             "imgs": outf_v,
             "s": outf_s,
         }
