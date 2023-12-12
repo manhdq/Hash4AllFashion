@@ -1,0 +1,58 @@
+data_param:
+  batch_size: 2 # batch size, most ideal is 64
+  data_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware # data root
+  image_root: /home/dungmaster/Datasets/Fashion-Outfits-Theme-Aware  # image root
+  data_set: train # data set
+  nega_mode: RandomOnline # negative outfits strategy
+  num_workers: 2 # number of workers
+  use_lmdb: true # use lmbd data
+  use_semantic: false # use sentance data
+  use_visual: true # use visual data
+  use_outfit_semantic: false # whether to use outfit semantic
+  use_visual_embedding: false  # whether to use visual embedding
+  transforms: true
+  cate_selection: [top, bottom, outerwear, bag, footwear]
+  # cate_selection: [full-body, top, bottom, outerwear, bag, footwear, accessory]
+  num_pairwise: [2, 3, 4]
+  using_max_num_pairwise: true
+
+train_data_param:
+  shuffle: true # do shuffle
+  data_mode: PairWise # output data format
+  phase: train # split
+
+test_data_param:
+  shuffle: false # do not shuffle
+  data_mode: PairWise # output data format
+  phase: val # split
+
+net_param:
+  name: FashionNet
+  num_users: 1 # number of users ##TODO: Later
+  dim: 128 # dimension of binary codes
+  outfit_semantic_dim: 512 # dimension of outfit semantic vector
+  visual_embedding_dim: 512 # dimension of image embedding vector  
+  backbone: alexnet # backbone for feature extractor
+  hash_types: 2 # type of hash codes, current only use for item
+  scale_tanh: true # use scale tanh
+  use_semantic: false # use semantic features
+  use_visual: true # user visdual features
+  use_outfit_semantic: true # whether to use outfit semantic
+  use_visual_embedding: false  # whether to use visual embedding
+  margin: 0.1 # margin for vse-loss, if exists
+  shared_weight_network: true
+  pairwise_weight: 1.0
+  outfit_semantic_weight: 1.5
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/12_10_23/fhn_t3_ve_12_10_best.pt
+
+gpus: [0]
+
+## Deploy options
+hash_storage: storages/hash_apparels_12_10.pkl
+# hash_storage: storages/hash_apparels_12_10_latest.pkl
+score_type_selection: "binary"
+# score_type_selection: "latent"
+feature_type_selection: "visual"
+num_recommends_per_choice: 5
+num_recommends_for_composition: 3
+get_composed_recommendation: True
