@@ -944,7 +944,6 @@ class FITBLoader(object):
         return oid, (outf_list, cates_list)
 
 
-@snoop
 def outfit_fashion_collate(batch):
     """Custom collate function for dealing with batch of fashion dataset
     Each sample will has following output from dataset:
