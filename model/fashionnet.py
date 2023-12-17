@@ -359,7 +359,7 @@ class FashionNet(nn.Module):
         bco = self.sign(lco)
         return lco, bco
 
-    def forward(self, **inputs):
+    def forward_train(self, **inputs):
         """Forward according to setting."""
         posi_cates, nega_cates = inputs["cates"]
         cates = torch.cat([posi_cates, nega_cates])
@@ -410,6 +410,51 @@ class FashionNet(nn.Module):
         return torch.eq(pred_cates, cates)
 
     ##TODO: Modify for not `shared weight` option, add user for very later
+    def forward(self, *inputs):
+        scale = 10.0
+        feats_dict = defaultdict(None)
+
+        # Extract features throught backbone
+        feats = self.features(inputs[0])
+        size = len(feats)
+
+        # Extract outfit textual semantic
+        if hasattr(self, "encoder_o"):
+            lco, bco = self.outfit_semantic_latent(inputs[1])
+
+        # Extract category classification logits
+        feats_dict["visual_fc"] = self.classifier_v(feats)
+
+        # Extract latent codes
+        if self.param.use_visual:
+            lcis_v = self.encoder_v(feats)
+            bcis_v = self.sign(lcis_v)
+            feats_dict["lcis_v"] = lcis_v
+            feats_dict["bcis_v"] = bcis_v
+
+        if self.param.use_semantic:
+            lcis_s = self.encoder_t(feats)
+            bcis_s = self.sign(lcis_s)
+            feats_dict["lcis_s"] = lcis_s
+            feats_dict["bcis_s"] = bcis_s
+
+        # Compute score of the outfit
+        indx, indy = np.triu_indices(size, k=1)
+
+        bcis_v = feats_dict["bcis_v"]        
+        pairwise = bcis_v[indx] * bcis_v[indy]        
+
+        score_i = self.core[0](pairwise).mean()
+        
+        score_o = 0
+        if self.param.use_outfit_semantic:
+            semwise = bcis_v * bco
+            score_o = self.core[1](semwise).mean()
+
+        feats_dict["score"] = (score_i + score_o) * (scale * 2.0)
+
+        return feats_dict
+
     def extract_features(self, inputs):
         feats_dict = defaultdict(None)
 
@@ -429,7 +474,7 @@ class FashionNet(nn.Module):
             feats_dict["lcis_s"] = lcis_s
             feats_dict["bcis_s"] = bcis_s
 
-        return feats_dict
+        return feats_dict    
 
     def num_groups(self):
         """Size of sub-modules."""
