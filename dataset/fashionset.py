@@ -19,6 +19,7 @@ import utils
 import utils.config as cfg
 from .transforms import get_img_trans
 
+import snoop
 from icecream import ic
 
 
@@ -943,6 +944,7 @@ class FITBLoader(object):
         return oid, (outf_list, cates_list)
 
 
+@snoop
 def outfit_fashion_collate(batch):
     """Custom collate function for dealing with batch of fashion dataset
     Each sample will has following output from dataset:
