@@ -37,19 +37,20 @@ net_param:
   scale_tanh: true # use scale tanh
   use_semantic: false # use semantic features
   use_visual: true # user visdual features
-  use_outfit_semantic: true # whether to use outfit semantic
+  use_outfit_semantic: false # whether to use outfit semantic
   use_visual_embedding: false  # whether to use visual embedding
   margin: 0.1 # margin for vse-loss, if exists
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/12_10_23/fhn_t3_ve_12_10_best.pt
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/old/H4A_t3_allFashion_noSemantic_classify_best.net
+  # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/12_10_23/fhn_t3_ve_12_10_best.pt
 
 gpus: [0]
 
 ## Deploy options
-hash_storage: storages/hash_apparels_12_10.pkl
-# hash_storage: storages/hash_apparels_12_10_latest.pkl
+hash_storage: storages/hash_apparels_old_classify.pkl
+# hash_storage: storages/hash_apparels_12_10.pkl
 score_type_selection: "binary"
 # score_type_selection: "latent"
 feature_type_selection: "visual"
