@@ -43,10 +43,13 @@ net_param:
   shared_weight_network: true
   pairwise_weight: 1.0
   outfit_semantic_weight: 1.5
-  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt  
+  core_trained: Hash4AllFashion_deploy/checkpoints/11_26_23/core_best_11_26.pt
+  encoder_o_trained: Hash4AllFashion_deploy/checkpoints/11_26_23/encoder_o_best_11_26.pt  
+  load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_best_11_26.pt
   # load_trained: /home/dungmaster/Projects/Machine Learning/HangerAI_outfits_recommendation_system/Hash4AllFashion_deploy/checkpoints/11_26_23/fhn_t3_osem_latest_11_26.pt  
 
 gpus: [0]
+
 
 ## Deploy options
 hash_storage: storages/hash_apparels_11_26.pkl
