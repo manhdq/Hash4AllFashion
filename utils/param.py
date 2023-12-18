@@ -372,6 +372,8 @@ class NetParam(_Param):
         shared_weight_network=False,
         pairwise_weight=1.0,
         outfit_semantic_weight=1.0,
+        core_trained=None,
+        encoder_o_trained=None,        
         load_trained=None,  # pretrained weight
     )
 
